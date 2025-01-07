@@ -1,0 +1,78 @@
+/* Contact Section Background */
+.contact-background {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease-in-out;
+  background: radial-gradient(
+    circle at center,
+    rgba(88, 28, 135, 0.7) 0%,
+    rgba(30, 10, 60, 0.85) 50%,
+    rgba(10, 5, 20, 1) 100%
+  );
+}
+
+.contact-background.visible {
+  opacity: 1;
+}
+
+/* Grid Effect */
+.contact-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.8s ease-in-out;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.contact-grid.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Glow Effects */
+.contact-glow {
+  position: absolute;
+  width: 450px;
+  height: 450px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  background: radial-gradient(
+    circle at center,
+    rgba(139, 92, 246, 0.1),
+    transparent 70%
+  );
+  filter: blur(60px);
+}
+
+.contact-glow.visible {
+  opacity: 1;
+}
+
+.glow-1 {
+  top: 10%;
+  left: 20%;
+  animation: float-contact 15s ease-in-out infinite;
+}
+
+.glow-2 {
+  bottom: 15%;
+  right: 15%;
+  width: 350px;
+  height: 350px;
+  animation: float-contact 12s ease-in-out infinite reverse;
+}
+
+@keyframes float-contact {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-25px) scale(1.15);
+  }
+}

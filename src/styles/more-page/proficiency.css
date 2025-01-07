@@ -1,0 +1,31 @@
+/* Language proficiency styles */
+.proficiency-bar {
+  height: 4px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.proficiency-level {
+  height: 100%;
+  background: #8b5cf6;
+  border-radius: 2px;
+  transition: width 1s ease;
+}
+
+.proficiency-text {
+  color: #e5e7eb;
+  font-size: 0.875rem;
+}
+
+.proficiency-label {
+  color: #8b5cf6;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.proficiency-description {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}

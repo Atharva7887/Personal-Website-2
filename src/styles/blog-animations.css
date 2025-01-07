@@ -1,0 +1,37 @@
+/* Blog post card hover animations */
+.blog-card {
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.blog-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Category transition */
+.category-item {
+  transition: all 0.3s ease-out;
+}
+
+.category-item:hover {
+  background-color: rgba(139, 92, 246, 0.2);
+}
+
+/* Search bar focus animation */
+.search-input {
+  transition: border-color 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.search-input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+/* Popular posts hover effect */
+.popular-post {
+  transition: transform 0.3s ease-out;
+}
+
+.popular-post:hover {
+  transform: translateX(4px);
+}

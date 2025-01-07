@@ -1,0 +1,56 @@
+@import './background.css';
+@import './animations.css';
+@import './cards.css';
+@import './proficiency.css';
+
+/* Additional global styles for More page */
+.section-header {
+  position: relative;
+  display: inline-block;
+}
+
+.section-header::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: #8b5cf6;
+  border-radius: 3px;
+}
+
+/* Center section headers */
+section h2.section-header {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Ensure proper spacing between sections */
+section {
+  margin-bottom: 6rem;
+}
+
+section:last-child {
+  margin-bottom: 0;
+}
+
+/* Improve card transitions */
+.hover-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhance proficiency bars */
+.proficiency-bar {
+  height: 4px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.proficiency-level {
+  height: 100%;
+  background: #8b5cf6;
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
