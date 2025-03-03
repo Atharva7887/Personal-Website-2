@@ -100,12 +100,13 @@ export default function ProjectsSection() {
           ))}
         </div>
 
+        {/* Show More Button */}
         <div className="text-center mt-8">
           <button
             onClick={() => setShowAll(!showAll)}
-            className="text-white text-lg font-bold uppercase tracking-wide flex items-center justify-center transition-all duration-300 ease-in-out border-none bg-transparent p-4 cursor-pointer"
+            className="text-white text-lg font-bold uppercase tracking-wide flex items-center justify-center transition-all duration-300 ease-in-out border-none bg-transparent p-4 cursor-pointer relative group"
           >
-            <span className="w-0 h-1 bg-white inline-block mr-2 transition-all duration-300 ease-in-out group-hover:w-12"></span>
+            <span className="absolute bottom-0 left-0 w-0 h-1 bg-white transition-all duration-300 ease-in-out group-hover:w-full"></span>
             {showAll ? "Show Less" : "More Projects..."}
           </button>
         </div>
@@ -113,4 +114,3 @@ export default function ProjectsSection() {
     </section>
   );
 }
-
