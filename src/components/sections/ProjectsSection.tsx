@@ -9,7 +9,7 @@ const allProjects = [
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
     demo: "",
-    image: "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/derm_-_hero_image_2_1.width-1600.format-webp.webp",
+    image: "https://www.tbsnews.net/sites/default/files/styles/big_3/public/images/2021/06/06/moods.jpg",
   },
   {
     id: 2,
@@ -53,7 +53,7 @@ export default function ProjectsSection() {
     <section id="projects" className="relative min-h-screen">
       <ProjectsBackground />
       <div className="relative z-10 py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <FadeInSection delay={0.4}>
+        <FadeInSection delay={0.2}>
           <div className="text-center mb-16">
             <h2 className="text-4xl sm:text-5xl font-bold font-playfair mb-4">
               Project Highlights
