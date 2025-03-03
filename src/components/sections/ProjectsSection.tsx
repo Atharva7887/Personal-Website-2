@@ -7,6 +7,7 @@ const projects = [
     title: "Skin Disease Detection",
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
+    demo: "", // No demo link
     image: "https://atharva7887.s3.us-east-1.amazonaws.com/images/skin-disease-detection.jpg",
   },
   {
@@ -14,6 +15,7 @@ const projects = [
     title: "Robotic Arm With Metallic sorter",
     description: "A robotic arm that sorts metallic and non-metallic objects.",
     github: "https://github.com/Atharva7887/Robotic-arm-with-metallic-sorting",
+    demo: "", // No demo link
     image: "https://www.wlkata.com/cdn/shop/products/wlkataconveyorbelt-0.jpg?v=1678337862&width=823",
   },
   {
@@ -29,6 +31,7 @@ const projects = [
     title: "Threat Detection in Cyber Security Using AI",
     description: "Uses Machine learning to preprocess data, filter attacks, select features, and evaluate models for identifying threats.",
     github: "https://github.com/Atharva7887/Threat-Detection-in-Cyber-Security-Using-AI",
+    demo: "", // No demo link
     image: "https://www.acronyms.co.uk/wp-content/uploads/2024/04/ai-robot-cybersecurity-1024x560-1024x585.webp",
   },
 ];
@@ -60,14 +63,16 @@ export default function ProjectsSection() {
                   <h3 className="text-xl font-semibold mb-2">{project.title}</h3>
                   <p className="text-gray-400 mb-4">{project.description}</p>
                   <div className="flex gap-4">
-                    <a
-                      href={project.demo}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
-                    >
-                      Live Demo
-                    </a>
+                    {project.demo && (
+                      <a
+                        href={project.demo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+                      >
+                        Live Demo
+                      </a>
+                    )}
                     <a
                       href={project.github}
                       target="_blank"
