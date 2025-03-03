@@ -64,7 +64,7 @@ export default function ProjectsSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {displayedProjects.map((project, index) => (
-            <FadeInSection key={project.id} delay={0.6 + index * 0.2}>
+            <FadeInSection key={project.id} delay={0.2 + index * 0.2}>
               <div className="relative group p-6 rounded-lg border border-gray-800 overflow-hidden transition-transform transform hover:scale-105">
                 <img
                   src={project.image}
