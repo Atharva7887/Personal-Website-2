@@ -9,7 +9,7 @@ const allProjects = [
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
     demo: "",
-    image: "https://atharva7887.s3.us-east-1.amazonaws.com/images/skin-disease-detection.jpg",
+    image: "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/derm_-_hero_image_2_1.width-1600.format-webp.webp",
   },
   {
     id: 2,
@@ -33,7 +33,7 @@ const allProjects = [
     description: "Uses Machine learning to preprocess data, filter attacks, select features, and evaluate models for identifying threats.",
     github: "https://github.com/Atharva7887/Threat-Detection-in-Cyber-Security-Using-AI",
     demo: "",
-    image: "https://www.acronyms.co.uk/wp-content/uploads/2024/04/ai-robot-cybersecurity-1024x560-1024x585.webp",
+    image: "https://miro.medium.com/v2/resize:fit:1100/format:webp/0*UNj3S8SGwNxG029i",
   },
   {
     id: 5,
@@ -41,7 +41,7 @@ const allProjects = [
     description: "A dashboard to analyze stock market trends and provide insights.",
     github: "https://github.com/Atharva7887/Stock-Market-Analyzer",
     demo: "",
-    image: "https://example.com/stock-market-analyzer.jpg",
+    image: "https://miro.medium.com/v2/resize:fit:1100/format:webp/1*_12VG957NJA854PvZFJNDA.png",
   }
 ];
 
