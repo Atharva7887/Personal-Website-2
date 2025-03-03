@@ -1,47 +1,52 @@
-import { Code, Cpu, Database, Shield, Cloud, LineChart, MonitorCheck, Gamepad2 } from 'lucide-react';
+import { Code, Database, Shield, Cloud, LineChart, Bot, FlaskConical, TestTube2, Gamepad2 } from 'lucide-react';
 import FadeInSection from '../animations/FadeInSection';
 
 const skills = [
   {
     title: 'Full Stack Development',
     description: 'Building responsive and dynamic websites',
-    icon: Code,
+    icon: Code
   },
   {
-    title: 'Software Development',
+    title: 'Software Engineering',
     description: 'Designing robust software solutions',
-    icon: Database,
+    icon: Database
   },
   {
     title: 'AI/ML',
-    description: 'Developing intelligent systems and machine learning models',
-    icon: Cpu,
+    description: 'Developing intelligent algorithms and models',
+    icon: FlaskConical
   },
   {
     title: 'Data Analysis',
     description: 'Interpreting complex data sets',
-    icon: LineChart,
+    icon: LineChart
+  },
+  {
+    title: 'Robotics',
+    description: 'Designing and programming robotic systems',
+    icon: Bot
   },
   {
     title: 'Cybersecurity',
     description: 'Ensuring data protection and privacy',
-    icon: Shield,
+    icon: Shield
   },
   {
     title: 'Cloud Computing',
     description: 'Leveraging cloud technologies',
-    icon: Cloud,
+    icon: Cloud
   },
   {
     title: 'Software Testing',
-    description: 'Ensuring software reliability and performance',
-    icon: MonitorCheck,
+    description: 'Ensuring software quality and reliability',
+    icon: TestTube2
   },
   {
     title: 'Game Testing',
     description: 'Testing and quality assurance for games',
-    icon: Gamepad2,
-  },
+    icon: Gamepad2
+  }
 ];
 
 export default function ExpertiseSection() {
