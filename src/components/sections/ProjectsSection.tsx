@@ -7,7 +7,6 @@ const projects = [
     title: "Skin Disease Detection",
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
-    demo: "#", // Add live demo link here
     image: "https://atharva7887.s3.us-east-1.amazonaws.com/images/skin-disease-detection.jpg",
   },
   {
@@ -15,7 +14,6 @@ const projects = [
     title: "Robotic Arm With Metallic sorter",
     description: "A robotic arm that sorts metallic and non-metallic objects.",
     github: "https://github.com/Atharva7887/Robotic-arm-with-metallic-sorting",
-    demo: "#", // Add live demo link here
     image: "https://www.wlkata.com/cdn/shop/products/wlkataconveyorbelt-0.jpg?v=1678337862&width=823",
   },
   {
@@ -31,7 +29,6 @@ const projects = [
     title: "Threat Detection in Cyber Security Using AI",
     description: "Uses Machine learning to preprocess data, filter attacks, select features, and evaluate models for identifying threats.",
     github: "https://github.com/Atharva7887/Threat-Detection-in-Cyber-Security-Using-AI",
-    demo: "#", // Add live demo link here
     image: "https://www.acronyms.co.uk/wp-content/uploads/2024/04/ai-robot-cybersecurity-1024x560-1024x585.webp",
   },
 ];
