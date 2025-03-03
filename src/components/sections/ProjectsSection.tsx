@@ -103,8 +103,9 @@ export default function ProjectsSection() {
         <div className="text-center mt-8">
           <button
             onClick={() => setShowAll(!showAll)}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="text-white text-lg font-bold uppercase tracking-wide flex items-center justify-center transition-all duration-300 ease-in-out border-none bg-transparent p-4 cursor-pointer"
           >
+            <span className="w-0 h-1 bg-white inline-block mr-2 transition-all duration-300 ease-in-out group-hover:w-12"></span>
             {showAll ? "Show Less" : "More Projects..."}
           </button>
         </div>
@@ -112,3 +113,4 @@ export default function ProjectsSection() {
     </section>
   );
 }
+
