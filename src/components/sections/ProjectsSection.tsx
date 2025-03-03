@@ -8,7 +8,7 @@ const projects = [
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
     demo: "", // No demo link
-    image: "https://atharva7887.s3.us-east-1.amazonaws.com/images/skin-disease-detection.jpg",
+    image: "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/derm_-_hero_image_2_1.width-1600.format-webp.webp",
   },
   {
     id: 2,
@@ -30,7 +30,7 @@ const projects = [
     id: 4,
     title: "Threat Detection in Cyber Security Using AI",
     description: "Uses Machine learning to preprocess data, filter attacks, select features, and evaluate models for identifying threats.",
-    github: "https://github.com/Atharva7887/Threat-Detection-in-Cyber-Security-Using-AI",
+    github: "https://miro.medium.com/v2/resize:fit:1100/format:webp/0*UNj3S8SGwNxG029i",
     demo: "", // No demo link
     image: "https://www.acronyms.co.uk/wp-content/uploads/2024/04/ai-robot-cybersecurity-1024x560-1024x585.webp",
   },
