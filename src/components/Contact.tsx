@@ -117,6 +117,10 @@ export default function Contact() {
                 </div>
               </a>
 
+              <a
+                    href="https://maps.app.goo.gl/ayiTJ7q28CsYpzow9"
+                    className="text-gray-400 group-hover:text-gray-200 transition-colors"
+              >
               <div className="flex items-center gap-4 group hover:scale-105 transition-transform">
                 <div className="w-10 h-10 bg-purple-500 rounded flex items-center justify-center group-hover:bg-purple-600 transition-colors">
                   <MapPin className="w-5 h-5 text-white" />
@@ -125,15 +129,13 @@ export default function Contact() {
                   <p className="font-semibold group-hover:text-purple-400 transition-colors">
                     Location
                   </p>
-                  <a
-                    href="https://maps.app.goo.gl/ayiTJ7q28CsYpzow9"
-                    className="text-gray-400 group-hover:text-gray-200 transition-colors"
-                  >
+                  
                     Kohinoor Jeeva, Mahesh Society, Bibwewadi, Pune,
                     Maharashtra, India
-                  </a>
+                  
                 </div>
               </div>
+              </a>
             </div>
           </div>
 
