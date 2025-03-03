@@ -1,21 +1,22 @@
+import { useState } from 'react';
 import FadeInSection from '../animations/FadeInSection';
 import { ProjectsBackground } from '../backgrounds/ProjectsBackground';
 
-const projects = [
+const allProjects = [
   {
     id: 1,
     title: "Skin Disease Detection",
     description: "A CNN and Decision Tree-based system to identify skin diseases.",
     github: "https://github.com/Atharva7887/Skin-disease-detection-system-with-AI",
-    demo: "", // No demo link
-    image: "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/derm_-_hero_image_2_1.width-1600.format-webp.webp",
+    demo: "",
+    image: "https://atharva7887.s3.us-east-1.amazonaws.com/images/skin-disease-detection.jpg",
   },
   {
     id: 2,
     title: "Robotic Arm With Metallic sorter",
     description: "A robotic arm that sorts metallic and non-metallic objects.",
     github: "https://github.com/Atharva7887/Robotic-arm-with-metallic-sorting",
-    demo: "", // No demo link
+    demo: "",
     image: "https://www.wlkata.com/cdn/shop/products/wlkataconveyorbelt-0.jpg?v=1678337862&width=823",
   },
   {
@@ -30,13 +31,24 @@ const projects = [
     id: 4,
     title: "Threat Detection in Cyber Security Using AI",
     description: "Uses Machine learning to preprocess data, filter attacks, select features, and evaluate models for identifying threats.",
-    github: "https://miro.medium.com/v2/resize:fit:1100/format:webp/0*UNj3S8SGwNxG029i",
-    demo: "", // No demo link
+    github: "https://github.com/Atharva7887/Threat-Detection-in-Cyber-Security-Using-AI",
+    demo: "",
     image: "https://www.acronyms.co.uk/wp-content/uploads/2024/04/ai-robot-cybersecurity-1024x560-1024x585.webp",
   },
+  {
+    id: 5,
+    title: "Stock Market Analyzer",
+    description: "A dashboard to analyze stock market trends and provide insights.",
+    github: "https://github.com/Atharva7887/Stock-Market-Analyzer",
+    demo: "",
+    image: "https://example.com/stock-market-analyzer.jpg",
+  }
 ];
 
 export default function ProjectsSection() {
+  const [showAll, setShowAll] = useState(false);
+  const displayedProjects = showAll ? allProjects : allProjects.slice(0, 4);
+
   return (
     <section id="projects" className="relative min-h-screen">
       <ProjectsBackground />
@@ -51,7 +63,7 @@ export default function ProjectsSection() {
         </FadeInSection>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {projects.map((project, index) => (
+          {displayedProjects.map((project, index) => (
             <FadeInSection key={project.id} delay={0.6 + index * 0.2}>
               <div className="relative group p-6 rounded-lg border border-gray-800 overflow-hidden transition-transform transform hover:scale-105">
                 <img
@@ -86,6 +98,15 @@ export default function ProjectsSection() {
               </div>
             </FadeInSection>
           ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            {showAll ? "Show Less" : "More Projects..."}
+          </button>
         </div>
       </div>
     </section>
