@@ -8,7 +8,7 @@ const skills = [
     icon: Code,
   },
   {
-    title: 'Software Engineering',
+    title: 'Software Development',
     description: 'Designing robust software solutions',
     icon: Database,
   },
