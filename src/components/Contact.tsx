@@ -55,7 +55,7 @@ export default function Contact() {
 
   const handleDownloadCV = () => {
     window.open(
-      'https://atharva7887.s3.us-east-1.amazonaws.com/Atharva+Resume.pdf',
+      'https://drive.google.com/file/d/17idjlLbzfYaJ4WmL4_uT4ZFyYfrG8J5e/view?usp=drive_link',
       '_blank'
     );
   };
