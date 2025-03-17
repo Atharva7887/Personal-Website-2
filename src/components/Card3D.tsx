@@ -1,11 +1,16 @@
-import { Github, Instagram, Linkedin } from 'lucide-react';
+import { Github, Instagram, Linkedin } from "lucide-react";
+import myImage from "./Images/me.jpg"; // Import the image
 
 export default function Card3D() {
   return (
     <div className="card">
       <div className="image-container">
-        <img src="https://drive.google.com/uc?export=view&id=1DGxOKuh669BoVQFQ_316FQRyn5lBu8KU" alt="My Image" className="card-image" />
+        <img src={myImage} alt="My Image" className="card-image" />
       </div>
+    </div>
+  );
+}
+
       
       <p className="heading">Atharva</p>
       <p>A Computer Engineer</p>
