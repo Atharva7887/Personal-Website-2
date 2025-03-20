@@ -5,7 +5,7 @@ export default function Card3D() {
   return (
     <div className="card">
       <div className="image-container">
-        <img src="https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/components/Images/me.jpg" alt="My Image Noo" className="card-image" />
+        <img src="https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/components/Images/me.jpg" alt="My Image is not visible because i have got n bill from AWS :(" className="card-image" />
       </div>
     </div>
   );
