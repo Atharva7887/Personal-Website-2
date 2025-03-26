@@ -24,7 +24,7 @@ export default function Card3D() {
           <Github size={20} />
         </a>
         <a
-          href="https://instagram.com/a_t_h_a_r_v_a_1"
+          href="https://instagram.com"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Instagram"
