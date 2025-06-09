@@ -6,84 +6,116 @@ export const certificates: Certificate[] = [
     title: 'Analyze Data to Answer Questions',
     organization: 'Google',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Analyze+Data+to+Answer+Questions-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Analyze+Data+to+Answer+Questions.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Analyze%20Data%20to%20Answer%20Questions-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Analyze%20Data%20to%20Answer%20Questions-1.png',
   },
   {
     id: 'bl-certificate',
     title: 'Skills Enhancement Using Power BI with DAX',
     organization: 'Vishwakarma University',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/BI+certificate.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/BI+certificate.jpg'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/BI%20certificate.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/BI%20certificate.png',
+  },
+  {
+    id: 'elenxia-certificate',
+    title: 'Elenxia Certificate of Appreciation',
+    organization: 'Elenxia',
+    imagePath:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Elenxia%20Certificate%20of%20Appreciation-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Elenxia%20Certificate%20of%20Appreciation-1.png',
   },
   {
     id: 'foundations-data',
     title: 'Foundations: Data, Data, Everywhere',
     organization: 'Google',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Foundations+Data,+Data,+Everywhere-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Foundations+Data,+Data,+Everywhere.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Foundations%20Data,%20Data,%20Everywhere-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Foundations%20Data,%20Data,%20Everywhere-1.png',
   },
   {
     id: 'hackathon',
     title: 'Hackathon Participation Certificate',
     organization: 'Vishwakarma University',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Hackthon+Participation+Certificate+-1.jpg',
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Hackthon%20Participation%20Certificate%20-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Hackthon%20Participation%20Certificate%20-1.png',
   },
   {
     id: 'intro-ml',
     title: 'Introduction to Machine Learning',
     organization: 'Duke University',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Introduction+to+Machine+Learning-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Introduction+to+Machine+Learning.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Introduction%20to%20Machine%20Learning-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Introduction%20to%20Machine%20Learning-1.png',
   },
   {
-    id: 'data-decisions',
-    title: 'Make Data-Driven Decisions',
-    organization: 'Google',
+    id: 'mit-ai-workshop',
+    title: 'MIT AI Workshop',
+    organization: 'MIT WPU',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Make+Data-Driven+Decisions-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Make+Data-Driven+Decisions.pdf'
-  },
-  {
-    id: 'ml-projects',
-    title: 'Managing Machine Learning Projects',
-    organization: 'Duke University',
-    imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Managing+Machine+Learning+Projects-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Managing+Machine+Learning+Projects.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20AI%20Workshop-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20AI%20Workshop-1.png',
   },
   {
     id: 'c-cpp-workshop',
     title: 'C & C++ Workshop',
     organization: 'MIT WPU',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/MIT+C+and+C%2B%2B+certificate-1.jpg',
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20C%20and%20C%2B%2B%20certificate-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20C%20and%20C%2B%2B%20certificate-1.png',
   },
   {
     id: 'robotics-automation',
     title: 'Robotics and Automation Workshop',
     organization: 'MIT WPU',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/MIT+Robotics+Certificate.jpg',
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20Robotics%20Certificate.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/MIT%20Robotics%20Certificate.png',
+  },
+  {
+    id: 'data-decisions',
+    title: 'Make Data-Driven Decisions',
+    organization: 'Google',
+    imagePath:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Make%20Data-Driven%20Decisions-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Make%20Data-Driven%20Decisions-1.png',
+  },
+  {
+    id: 'ml-projects',
+    title: 'Managing Machine Learning Projects',
+    organization: 'Duke University',
+    imagePath:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Managing%20Machine%20Learning%20Projects-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Managing%20Machine%20Learning%20Projects-1.png',
   },
   {
     id: 'data-exploration',
     title: 'Prepare Data for Exploration',
     organization: 'Google',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Prepare+Data+for+Exploration-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Prepare+Data+for+Exploration.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Prepare%20Data%20for%20Exploration-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Prepare%20Data%20for%20Exploration-1.png',
   },
   {
     id: 'data-cleaning',
     title: 'Process Data from Dirty to Clean',
     organization: 'Google',
     imagePath:
-      'https://atharva7887.s3.us-east-1.amazonaws.com/images/certificates/Process+Data+from+Dirty+to+Clean-1.jpg',
-    pdfUrl: 'https://atharva7887.s3.us-east-1.amazonaws.com/certificates/Process+Data+from+Dirty+to+Clean.pdf'
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Process%20Data%20from%20Dirty%20to%20Clean-1.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Process%20Data%20from%20Dirty%20to%20Clean-1.png',
   },
 ];
