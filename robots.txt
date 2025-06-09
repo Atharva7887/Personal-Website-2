@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 
 Sitemap: https://atharvashirke.netlify.app/sitemap.xml
+User-agent: *
+Allow: /
