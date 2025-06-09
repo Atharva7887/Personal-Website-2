@@ -1,6 +1,9 @@
- <head>
+<head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  
+  <!-- ✅ Favicon (your custom logo) -->
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- ✅ SEO Title and Description -->
@@ -14,7 +17,8 @@
   <meta property="og:description" content="Portfolio of Atharva Shirke, software developer and engineer." />
   <meta property="og:url" content="https://atharvashirke.netlify.app/" />
   <meta property="og:type" content="website" />
-  <!-- Optional: <meta property="og:image" content="URL_TO_THUMBNAIL_IMAGE" /> -->
+  <!-- Optional: Add this if you have a social preview image -->
+  <!-- <meta property="og:image" content="https://atharvashirke.netlify.app/logo.jpg" /> -->
 
   <!-- ✅ Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZL2N24M86V"></script>
@@ -25,7 +29,7 @@
     gtag('config', 'G-ZL2N24M86V');
   </script>
 
-  <!-- ✅ JSON-LD Structured Data -->
+  <!-- ✅ JSON-LD Structured Data (Person) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -40,4 +44,22 @@
     "description": "Atharva Shirke is a passionate software developer and engineer, building full-stack web applications and AI solutions."
   }
   </script>
+
+  <!-- ✅ JSON-LD Structured Data (Organization with logo) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Atharva Shirke",
+    "url": "https://atharvashirke.netlify.app",
+    "logo": "https://atharvashirke.netlify.app/logo.jpg"
+  }
+  </script>
 </head>
+
+
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+ </body>
+</html>
