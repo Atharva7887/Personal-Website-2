@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, Download } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { ContactBackground } from './backgrounds/ContactBackground';
-import GlitchButton from './ui/GlitchButton';
+import FadeInSection from './animations/FadeInSection';
 
 type FormData = {
   name: string;
@@ -18,6 +18,7 @@ export default function Contact() {
   });
 
   const [status, setStatus] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -28,6 +29,7 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     emailjs
       .send(
@@ -40,6 +42,9 @@ export default function Contact() {
         },
         'W1Ma7_c5aDjfy0Roo'
       )
+      .finally(() => {
+        setIsSubmitting(false);
+      });
       .then(
         (result) => {
           console.log(result.text);
@@ -63,137 +68,177 @@ export default function Contact() {
   return (
     <section id="contact" className="relative min-h-screen">
       <ContactBackground />
-      <div className="relative z-10 py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Download CV Button */}
-        <div className="flex justify-center mb-16">
-          <GlitchButton 
-            text="DOWNLOAD CV"
-            onClick={handleDownloadCV} 
-            data-text="DOWNLOAD CV"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div>
-            <h2 className="text-4xl sm:text-5xl font-bold font-playfair mb-4">
-              Contact Me
+      <div className="relative z-10 py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <FadeInSection delay={0.2}>
+          <div className="text-center mb-20">
+            <div className="inline-block mb-4">
+              <span className="text-sm font-semibold text-purple-400 tracking-wider uppercase">Get In Touch</span>
+            </div>
+            <h2 className="text-5xl sm:text-7xl font-bold font-playfair mb-6 bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+              Let's Work Together
             </h2>
-            <p className="text-xl text-gray-300 mb-8">
-              Let's discuss your project
+            <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto mb-6"></div>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8">
+              Ready to bring your ideas to life? Let's discuss your project and create something amazing together.
             </p>
-
-            <div className="space-y-6">
-              {/* Email */}
-              <a
-                href="mailto:athshirke2002@gmail.com"
-                className="flex items-center gap-4 group hover:scale-105 transition-transform"
-              >
-                <div className="w-10 h-10 bg-purple-500 rounded flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-                  <Mail className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                    Email
-                  </p>
-                  <p className="text-gray-400 group-hover:text-gray-200 transition-colors">
-                    athshirke2002@gmail.com
-                  </p>
-                </div>
-              </a>
-
-              {/* Phone */}
-              <a
-                href="tel:+917887333939"
-                className="flex items-center gap-4 group hover:scale-105 transition-transform"
-              >
-                <div className="w-10 h-10 bg-purple-500 rounded flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-                  <Phone className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                    Phone
-                  </p>
-                  <p className="text-gray-400 group-hover:text-gray-200 transition-colors">
-                    +91 7887333939
-                  </p>
-                </div>
-              </a>
-
-              {/* Location */}
-              <a
-                href="https://maps.app.goo.gl/ayiTJ7q28CsYpzow9"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 group hover:scale-105 transition-transform"
-              >
-                <div className="w-10 h-10 bg-purple-500 rounded flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-                  <MapPin className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                    Location
-                  </p>
-                  <p className="text-gray-400 group-hover:text-gray-200 transition-colors">
-                    Kohinoor Jeeva, Mahesh Society, Bibwewadi, Pune, Maharashtra, India
-                  </p>
-                </div>
-              </a>
-            </div>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-6 bg-black/30 backdrop-blur-sm p-8 rounded-lg"
-          >
-            <div>
-              <label className="block text-sm font-medium mb-2">Name</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-black border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Your Name"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-black border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Your Email"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Message</label>
-              <textarea
-                name="message"
-                value={formData.message}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-black border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent h-32"
-                placeholder="Your Message"
-                required
-              />
-            </div>
-
+            
+            {/* Download CV Button */}
             <button
-              type="submit"
-              className="w-full px-6 py-3 bg-purple-500 rounded-lg hover:bg-purple-600 transition-colors"
+              onClick={handleDownloadCV}
+              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25"
             >
-              Send Message
+              <Download size={20} className="group-hover:rotate-12 transition-transform duration-300" />
+              <span className="relative z-10">Download Resume</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
+          </div>
+        </FadeInSection>
 
-            {status && (
-              <p className="text-center text-sm mt-4 text-white">{status}</p>
-            )}
-          </form>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          <FadeInSection delay={0.4}>
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-3xl font-bold mb-6 text-white">Contact Information</h3>
+                <p className="text-gray-400 text-lg leading-relaxed mb-8">
+                  I'm always excited to work on new projects and collaborate with amazing people. 
+                  Feel free to reach out through any of the channels below.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Email */}
+                <a
+                  href="mailto:athshirke2002@gmail.com"
+                  className="group flex items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:transform hover:scale-105"
+                >
+                  <div className="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Mail className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:to-pink-400 group-hover:bg-clip-text transition-all duration-300">
+                      Email
+                    </p>
+                    <p className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
+                      athshirke2002@gmail.com
+                    </p>
+                  </div>
+                </a>
+
+                {/* Phone */}
+                <a
+                  href="tel:+917887333939"
+                  className="group flex items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-500/40 transition-all duration-300 hover:transform hover:scale-105"
+                >
+                  <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Phone className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-cyan-400 group-hover:bg-clip-text transition-all duration-300">
+                      Phone
+                    </p>
+                    <p className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
+                      +91 7887333939
+                    </p>
+                  </div>
+                </a>
+
+                {/* Location */}
+                <a
+                  href="https://maps.app.goo.gl/ayiTJ7q28CsYpzow9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 hover:border-green-500/40 transition-all duration-300 hover:transform hover:scale-105"
+                >
+                  <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <MapPin className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-green-400 group-hover:to-emerald-400 group-hover:bg-clip-text transition-all duration-300">
+                      Location
+                    </p>
+                    <p className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
+                      Pune, Maharashtra, India
+                    </p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </FadeInSection>
+
+          <FadeInSection delay={0.6}>
+            <div className="bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl p-8 rounded-3xl border border-gray-800">
+              <h3 className="text-2xl font-bold mb-6 text-white">Send a Message</h3>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-3 text-gray-300">Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-6 py-4 bg-black/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-white placeholder-gray-400"
+                    placeholder="Your Name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-3 text-gray-300">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-6 py-4 bg-black/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-white placeholder-gray-400"
+                    placeholder="Your Email"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-3 text-gray-300">Message</label>
+                  <textarea
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    className="w-full px-6 py-4 bg-black/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent h-40 resize-none transition-all duration-300 text-white placeholder-gray-400"
+                    placeholder="Tell me about your project..."
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="group relative w-full flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
+                      <span className="relative z-10">Send Message</span>
+                    </>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </button>
+
+                {status && (
+                  <div className={`p-4 rounded-xl text-center font-medium ${
+                    status.includes('successfully') 
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  }`}>
+                    {status}
+                  </div>
+                )}
+              </form>
+            </div>
+          </FadeInSection>
         </div>
       </div>
     </section>
