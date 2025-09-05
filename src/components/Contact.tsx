@@ -55,7 +55,7 @@ export default function Contact() {
 
   const handleDownloadCV = () => {
     window.open(
-      'https://drive.google.com/file/d/1P9j5x6qnG5g7NCNM7ZNqf2di71ZJn0hd/view?usp=drive_link',
+      'https://drive.google.com/file/d/1OvG1DPh0017BMuk2JRfpfY7d3Y2YCOii/view?usp=sharing',
       '_blank'
     );
   };
