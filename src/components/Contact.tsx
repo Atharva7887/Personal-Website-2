@@ -103,7 +103,7 @@ export default function Contact() {
 
               {/* Phone */}
               <a
-                href="tel:+917887333939"
+                href="tel:+917887333***"
                 className="flex items-center gap-4 group hover:scale-105 transition-transform"
               >
                 <div className="w-10 h-10 bg-purple-500 rounded flex items-center justify-center group-hover:bg-purple-600 transition-colors">
@@ -114,14 +114,14 @@ export default function Contact() {
                     Phone
                   </p>
                   <p className="text-gray-400 group-hover:text-gray-200 transition-colors">
-                    +91 7887333939
+                    +91 7887333*** (Sry can do that 😉)
                   </p>
                 </div>
               </a>
 
               {/* Location */}
               <a
-                href="https://maps.app.goo.gl/ayiTJ7q28CsYpzow9"
+                href="https://www.google.com/maps/place/Bibwewadi,+Pune,+Maharashtra/@18.4709054,73.8474944,3358m/data=!3m2!1e3!4b1!4m6!3m5!1s0x3bc2ea974085768d:0x167d3f7d6fa4e276!8m2!3d18.4690213!4d73.8640944!16s%2Fm%2F0h3v5j7?entry=ttu&g_ep=EgoyMDI1MTEyMC4xIKXMDSoASAFQAw%3D%3D"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-4 group hover:scale-105 transition-transform"
@@ -134,7 +134,7 @@ export default function Contact() {
                     Location
                   </p>
                   <p className="text-gray-400 group-hover:text-gray-200 transition-colors">
-                    Kohinoor Jeeva, Mahesh Society, Bibwewadi, Pune, Maharashtra, India
+                    Bibwewadi, Pune, Maharashtra, India
                   </p>
                 </div>
               </a>
