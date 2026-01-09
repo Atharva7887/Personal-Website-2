@@ -2,6 +2,14 @@ import { Certificate } from '../types/certificates';
 import { CERTIFICATE_PATHS, ORGANIZATIONS } from '../constants/certificates';
 
 export const certifications: Certificate[] = [
+  // Identity & Security
+  {
+    id: 'saviynt-identity-security',
+    title: 'Saviynt Identity Security for AI Age',
+    organization: ORGANIZATIONS.SAVIYNT,
+    imagePath: CERTIFICATE_PATHS.SAVIYNT,
+  },
+
   // Technology & Programming Workshops
   {
     id: 'c-cpp-workshop',
