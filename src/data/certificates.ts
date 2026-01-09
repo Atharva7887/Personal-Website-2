@@ -118,4 +118,13 @@ export const certificates: Certificate[] = [
     fileUrl:
       'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Process%20Data%20from%20Dirty%20to%20Clean-1.png',
   },
+  {
+    id: 'saviynt-identity-security',
+    title: 'Saviynt Identity Security for AI Age',
+    organization: 'Saviynt',
+    imagePath:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Saviynt%20certificate.png',
+    fileUrl:
+      'https://raw.githubusercontent.com/Atharva7887/Personal-Website-2/main/src/data/certificates/Saviynt%20certificate.png',
+  },
 ];
