@@ -1,0 +1,40 @@
+/* Base glowing text styles */
+.glowing-text {
+  --glow-color: #b8ff2b;
+  color: var(--glow-color);
+  animation: textPulse 2s ease-in-out infinite;
+}
+
+/* Low intensity glow */
+.glowing-text.low {
+  text-shadow: 
+    0 0 5px var(--glow-color),
+    0 0 10px var(--glow-color),
+    0 0 20px var(--glow-color);
+}
+
+/* Normal intensity glow */
+.glowing-text.normal {
+  text-shadow: 
+    0 0 10px var(--glow-color),
+    0 0 20px var(--glow-color),
+    0 0 30px var(--glow-color);
+}
+
+/* Strong intensity glow */
+.glowing-text.strong {
+  text-shadow: 
+    0 0 15px var(--glow-color),
+    0 0 30px var(--glow-color),
+    0 0 45px var(--glow-color),
+    0 0 60px var(--glow-color);
+}
+
+@keyframes textPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+}

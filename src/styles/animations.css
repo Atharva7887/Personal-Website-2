@@ -1,0 +1,53 @@
+/* Existing animations */
+
+/* Scroll Animations */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* Account for fixed header */
+}
+
+/* Section entrance animations */
+.section-enter {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.section-enter.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Smooth scroll progress indicator */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(to right, #8b5cf6, #e81cff);
+  transform-origin: 0 50%;
+  z-index: 100;
+  transition: transform 0.2s ease-out;
+}
+
+/* Glowing text animation */
+.animate-glow {
+  color: #3E5AED;
+  animation: textGlow 2s ease-in-out infinite;
+}
+
+@keyframes textGlow {
+  0%, 100% {
+    text-shadow: 
+      0 0 12px rgba(62, 90, 237, 1),
+      0 0 24px rgba(62, 90, 237, 0.8),
+      0 0 36px rgba(62, 90, 237, 0.6);
+  }
+  50% {
+    text-shadow: 
+      0 0 24px rgba(62, 90, 237, 1),
+      0 0 36px rgba(62, 90, 237, 0.8),
+      0 0 48px rgba(62, 90, 237, 0.6);
+  }
+}

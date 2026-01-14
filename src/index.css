@@ -1,0 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import './styles/card.css';
+@import './styles/animations.css';
+@import './styles/components/glitch-button.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

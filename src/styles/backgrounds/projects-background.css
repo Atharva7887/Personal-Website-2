@@ -1,0 +1,78 @@
+/* Projects Section Background */
+.projects-background {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease-in-out;
+  background: radial-gradient(
+    circle at center,
+    rgba(88, 28, 135, 0.7) 0%,
+    rgba(30, 10, 60, 0.85) 50%,
+    rgba(10, 5, 20, 1) 100%
+  );
+}
+
+.projects-background.visible {
+  opacity: 1;
+}
+
+/* Grid Effect */
+.projects-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.8s ease-in-out;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.projects-grid.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Glow Effects */
+.projects-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  background: radial-gradient(
+    circle at center,
+    rgba(139, 92, 246, 0.15),
+    transparent 70%
+  );
+  filter: blur(40px);
+}
+
+.projects-glow.visible {
+  opacity: 1;
+}
+
+.glow-1 {
+  top: 15%;
+  left: 25%;
+  animation: float-projects 12s ease-in-out infinite;
+}
+
+.glow-2 {
+  bottom: 15%;
+  right: 25%;
+  width: 400px;
+  height: 400px;
+  animation: float-projects 10s ease-in-out infinite reverse;
+}
+
+@keyframes float-projects {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+  }
+}

@@ -1,0 +1,64 @@
+/* Base card styles */
+.hover-card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.hover-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.3);
+}
+
+/* Certification card styles */
+.certification-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.certification-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(139, 92, 246, 0.1),
+    rgba(17, 24, 39, 0.9)
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.certification-card:hover::before {
+  opacity: 1;
+}
+
+.certification-card img {
+  transition: transform 0.3s ease;
+}
+
+.certification-card:hover img {
+  transform: scale(1.1);
+}
+
+.certification-card .content {
+  position: relative;
+  z-index: 1;
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(4px);
+  transition: transform 0.3s ease;
+}
+
+.certification-card:hover .content {
+  transform: translateY(-5px);
+}
+
+/* Glow effects */
+.hover-glow:hover {
+  box-shadow: 
+    0 0 20px rgba(139, 92, 246, 0.3),
+    0 0 40px rgba(139, 92, 246, 0.2);
+}
