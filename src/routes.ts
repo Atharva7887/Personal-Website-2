@@ -26,9 +26,9 @@ export const routes: RouteMeta[] = [
   })),
   {
     path: '/play/',
-    title: 'Gradient descent golf — Atharva Shirke',
+    title: 'Find the minimum — a 3D game by Atharva Shirke',
     description:
-      'A small browser game: set the learning rate and momentum, then roll a ball down a loss landscape into the hole in as few shots as you can.',
+      'A small 3D game about how machine learning learns: roll a ball across a loss landscape, collect my projects and find the global minimum.',
     ogImage: '/og/play.png',
   },
 ]

@@ -164,7 +164,7 @@ export function Contact() {
       <footer className="page">
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-5 text-sm text-white/85">
           <p>© 2026 {NAME}</p>
-          <a href="/play/" className="link inline-flex min-h-[44px] items-center">Play gradient descent golf</a>
+          <a href="/play/" className="link inline-flex min-h-[44px] items-center">Play: find the minimum</a>
           <a href="/#top" className="link inline-flex min-h-[44px] items-center">Back to top</a>
         </div>
       </footer>
