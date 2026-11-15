@@ -1,246 +1,311 @@
 import { useEffect, useRef, useState } from 'react'
-import { SubpageHeader } from '../components/SubpageHeader'
+import { EMAIL, RESUME_URL } from '../data/site'
 import { useReducedMotion } from '../components/motion'
-import type { ParticleHandle } from '../three/particleScene'
-import type { ShapeName } from '../three/shapes'
+import type { RoomHandle, StopId } from '../three/room'
 
-const SHAPES: { name: ShapeName; label: string; note: string }[] = [
-  { name: 'sphere', label: 'Sphere', note: 'Points spread evenly with a golden-angle spiral.' },
-  { name: 'lattice', label: 'Neural net', note: 'Four layers of a small network, points along every connection.' },
-  { name: 'knot', label: 'Torus knot', note: 'A (2, 3) torus knot: wraps twice one way, three times the other.' },
-  { name: 'helix', label: 'Double helix', note: 'Two strands and the rungs between them.' },
-  { name: 'antibody', label: 'Antibody', note: 'The Y-shaped molecule I work with every day.' },
-  { name: 'cloud', label: 'Cloud', note: 'Puff, from the Unhaze app.' },
-  { name: 'grid', label: 'Image', note: 'A grid of pixels, the input to a vision model.' },
-  { name: 'network', label: 'Network', note: 'Hosts and links, the shape of traffic data.' },
-  { name: 'spiral', label: 'Sunflower', note: 'Phyllotaxis: each seed turns 137.5° from the last.' },
-  { name: 'browser', label: 'Browser', note: 'A web page, in outline.' },
+interface Stop {
+  id: Exclude<StopId, 'overview'>
+  label: string
+  title: string
+  body: string
+  link?: { label: string; href: string }
+}
+
+// The tour, in story order. Every stop points at real work.
+const STOPS: Stop[] = [
+  {
+    id: 'window',
+    label: 'Window',
+    title: 'Pune, India',
+    body: 'This is where I work from. The window follows the real time in Pune, so if it’s dark outside, it’s late here too.',
+  },
+  {
+    id: 'desk',
+    label: 'Desk',
+    title: 'Where the work happens',
+    body: 'Apps, machine-learning pipelines and websites. The monitor shows what I’ve shipped lately.',
+    link: { label: 'See all my work', href: '/#work' },
+  },
+  {
+    id: 'gpu',
+    label: 'GPU tower',
+    title: 'Pipelines on GPUs',
+    body: 'At IndiskaAI I build deep-learning pipelines that predict and compare antibody structures, running on rented GPUs that survive restarts.',
+    link: { label: 'Read the case study', href: '/work/protein-ml-pipelines/' },
+  },
+  {
+    id: 'poster',
+    label: 'Poster',
+    title: 'The antibody',
+    body: 'The Y-shaped molecule I spend my days with. I built an offline desktop app that shows how one binds its target.',
+    link: { label: 'Read the case study', href: '/work/interaction-analysis-app/' },
+  },
+  {
+    id: 'phone',
+    label: 'Phone',
+    title: 'Unhaze',
+    body: 'My Android app: a gentle pause before distracting apps, with a little cloud called Puff. Coming soon to Google Play.',
+    link: { label: 'Read the case study', href: '/work/unhaze/' },
+  },
+  {
+    id: 'plant',
+    label: 'Plant',
+    title: 'Still alive',
+    body: 'Partly thanks to a small web app I made that works out water, soil and compost for a plant from its name and height.',
+    link: { label: 'Read the case study', href: '/work/plant-cultivation-helper/' },
+  },
+  {
+    id: 'shelf',
+    label: 'Bookshelf',
+    title: 'Research and learning',
+    body: 'A computer engineering degree, a first-author manuscript on antibody structure prediction in progress, and a co-authored review under submission.',
+    link: RESUME_URL ? { label: 'Download my résumé', href: RESUME_URL } : { label: 'About me', href: '/#about' },
+  },
+  {
+    id: 'arcade',
+    label: 'Arcade',
+    title: 'Take a break',
+    body: 'A small 3D game about how machine learning learns: roll down a loss landscape and find the global minimum.',
+    link: { label: 'Play Find the minimum', href: '/play/' },
+  },
+  {
+    id: 'mug',
+    label: 'Coffee',
+    title: 'Let’s grab a coffee',
+    body: 'Have a project in mind, a role, or just want to talk about models and apps? I’d like to hear about it.',
+    link: { label: 'Email me', href: `mailto:${EMAIL}` },
+  },
 ]
 
-const PALETTES = [
-  { name: 'Ink', bg: '#e4e7ec', base: '#0c0f14', accent: '#2f45ff', dark: false },
-  { name: 'Night', bg: '#0b0d1a', base: '#e4e7ec', accent: '#8c99ff', dark: true },
-  { name: 'Ember', bg: '#170c0a', base: '#ffb27a', accent: '#ff5a36', dark: true },
-  { name: 'Lab', bg: '#eef6f1', base: '#0f3d2e', accent: '#00a36c', dark: false },
-  { name: 'Volt', bg: '#2f45ff', base: '#ffffff', accent: '#0c0f14', dark: true },
-]
+function puneIsNight() {
+  const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Kolkata' }).format(new Date()))
+  return h < 6 || h >= 19
+}
 
 export function Studio() {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const engine = useRef<ParticleHandle | null>(null)
+  const room = useRef<RoomHandle | null>(null)
   const reduced = useReducedMotion()
-  const [shape, setShape] = useState<ShapeName | 'text' | 'scatter'>('sphere')
-  const [text, setText] = useState('Hello')
-  const [palette, setPalette] = useState(0)
-  const [spin, setSpin] = useState(1)
-  const [ready, setReady] = useState(false)
-  const P = PALETTES[palette]
+  const [entered, setEntered] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [active, setActive] = useState<Stop['id'] | null>(null)
+  const [hover, setHover] = useState<StopId | null>(null)
+  const [touring, setTouring] = useState(false)
+  const [night, setNight] = useState(false)
+  const [seen, setSeen] = useState<Set<string>>(new Set())
+
+  const open = (id: Stop['id']) => {
+    setActive(id)
+    setSeen((s) => new Set(s).add(id))
+    room.current?.focus(id)
+  }
+  const openRef = useRef(open)
+  openRef.current = open
+
+  useEffect(() => setNight(puneIsNight()), [])
 
   useEffect(() => {
     const c = canvas.current
     if (!c) return
     let cancelled = false
-    import('../three/particleScene').then(({ mountParticles }) => {
+    import('../three/room').then(({ mountRoom }) => {
       if (cancelled) return
       try {
-        engine.current = mountParticles(c, {
-          shapes: ['sphere'],
-          colors: { base: PALETTES[0].base, accent: PALETTES[0].accent },
-          reduced,
-          preserve: true,
-          density: 1.1,
-          layout: (aspect) => ({ x: 0, y: 0, z: aspect < 1 ? 14 : 11 }),
-        })
-        c.style.opacity = '1'
-        setReady(true)
+        room.current = mountRoom(
+          c,
+          {
+            onHover: setHover,
+            onSelect: (id) => {
+              if (id === 'overview') return
+              setEntered(true)
+              setTouring(false)
+              openRef.current(id)
+            },
+          },
+          { reduced, night: puneIsNight() },
+        )
       } catch {
-        /* no WebGL */
+        setFailed(true)
       }
     })
     return () => {
       cancelled = true
-      engine.current?.dispose()
-      engine.current = null
+      room.current?.dispose()
+      room.current = null
     }
   }, [reduced])
 
+  useEffect(() => room.current?.setNight(night), [night])
+
+  const overview = () => {
+    setActive(null)
+    setTouring(false)
+    room.current?.focus('overview')
+  }
+  const tourIndex = active ? STOPS.findIndex((s) => s.id === active) : -1
+  const startTour = () => {
+    setEntered(true)
+    setTouring(true)
+    open(STOPS[0].id)
+  }
+  const step = (d: number) => {
+    const i = tourIndex + d
+    if (i < 0 || i >= STOPS.length) return overview()
+    open(STOPS[i].id)
+  }
+
+  // Arrow keys move through the tour; Escape returns to the whole room.
   useEffect(() => {
-    engine.current?.setColors(P.base, P.accent)
-  }, [P, ready])
-
-  useEffect(() => {
-    engine.current?.setSpin(spin)
-  }, [spin, ready])
-
-  const pickShape = (name: ShapeName) => {
-    setShape(name)
-    engine.current?.setShape(name)
-  }
-
-  const showText = async (value = text) => {
-    const e = engine.current
-    if (!e || !value.trim()) return
-    await document.fonts.ready
-    const { textPoints } = await import('../three/textPoints')
-    setShape('text')
-    e.setSpin(0)
-    setSpin(0)
-    e.faceCamera()
-    e.setPoints(textPoints(value, e.count))
-  }
-
-  const scatter = async () => {
-    const e = engine.current
-    if (!e) return
-    const { scatterPoints } = await import('../three/textPoints')
-    setShape('scatter')
-    e.setPoints(scatterPoints(e.count))
-  }
-
-  const save = () => {
-    const url = engine.current?.snapshot()
-    if (!url) return
-    // Composite onto the palette background so the PNG isn't transparent.
-    const img = new Image()
-    img.onload = () => {
-      const out = document.createElement('canvas')
-      out.width = img.width
-      out.height = img.height
-      const ctx = out.getContext('2d')!
-      ctx.fillStyle = P.bg
-      ctx.fillRect(0, 0, out.width, out.height)
-      ctx.drawImage(img, 0, 0)
-      const a = document.createElement('a')
-      a.download = `studio-${shape}.png`
-      a.href = out.toDataURL('image/png')
-      a.click()
+    const onKey = (e: KeyboardEvent) => {
+      if (!entered) return
+      if (e.key === 'ArrowRight') step(1)
+      if (e.key === 'ArrowLeft') step(-1)
+      if (e.key === 'Escape') overview()
     }
-    img.src = url
-  }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
-  const note =
-    shape === 'text'
-      ? 'Your words, sampled into points from the letterforms.'
-      : shape === 'scatter'
-        ? 'Every particle let loose. Pick a shape to pull them back together.'
-        : SHAPES.find((s) => s.name === shape)?.note
+  const stop = STOPS.find((s) => s.id === active)
+  const hoverStop = STOPS.find((s) => s.id === hover)
+  const dark = night
 
   return (
-    <div className={'min-h-[100svh] transition-colors duration-700 ' + (P.dark ? 'dark text-fog' : 'text-ink')} style={{ background: P.bg }}>
-      <SubpageHeader />
-      <main id="main" className="page pb-16 pt-10">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
-          <div>
-            <h1 className="text-[clamp(3.4rem,10vw,9rem)] font-semibold leading-[0.85] tracking-[-0.05em]">Studio</h1>
-            <p className={'mt-4 max-w-xl text-lg ' + (P.dark ? 'text-fog/80' : 'text-slate')}>
-              A sketchbook for the particle engine behind this site. Shape it, write with it, recolour it, and keep what you
-              make.
+    <main id="main" className={'relative h-[100svh] overflow-hidden transition-colors duration-700 ' + (dark ? 'dark bg-[#0b0d1a] text-fog' : 'bg-fog text-ink')}>
+      <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full touch-manipulation" />
+
+      <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-7">
+        <a href="/" className="pointer-events-auto flex min-h-[44px] items-center font-display text-lg font-semibold">
+          AS<span className={dark ? 'text-voltsoft' : 'text-volt'}>.</span>
+        </a>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            onClick={() => setNight((n) => !n)}
+            aria-pressed={night}
+            className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'border border-white/30 hover:border-white' : 'btn-ghost bg-white/60')}
+          >
+            {night ? 'Lights on' : 'Lights off'}
+          </button>
+          {entered && active && (
+            <button onClick={overview} className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'bg-white text-ink' : 'btn-ink')}>
+              Whole room
+            </button>
+          )}
+        </div>
+      </header>
+
+      {!entered && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5 sm:p-10">
+          <div className="pointer-events-auto max-w-3xl">
+            <p className={dark ? 'text-fog/80' : 'text-slate'}>Studio</p>
+            <h1 className="mt-2 font-display text-[clamp(3rem,9vw,8rem)] font-semibold leading-[0.85] tracking-[-0.05em]">
+              Come in.
+              <br />
+              This is my room.
+            </h1>
+            <p className={'mt-5 max-w-lg text-lg ' + (dark ? 'text-fog/85' : 'text-slate')}>
+              Everything in here is something I’ve made or care about. Click around, or let me show you.
             </p>
-            <div className="relative mt-6 aspect-[4/3] w-full">
-              <canvas
-                ref={canvas}
-                aria-label={`Particle sketch: ${shape === 'text' ? `the word ${text}` : shape}`}
-                role="img"
-                className="absolute inset-0 h-full w-full opacity-0 transition-opacity duration-1000"
-              />
-              <p aria-live="polite" className={'absolute bottom-2 left-0 max-w-md text-sm ' + (P.dark ? 'text-fog/70' : 'text-slate')}>
-                {note}
-              </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button onClick={startTour} className={'btn px-7 text-lg ' + (dark ? 'bg-white text-ink hover:bg-voltsoft' : 'btn-ink')}>
+                Take the tour
+              </button>
+              <button onClick={() => setEntered(true)} className={'btn ' + (dark ? 'border border-white/40 hover:border-white' : 'btn-ghost bg-white/60')}>
+                Look around myself
+              </button>
             </div>
           </div>
-
-          <aside aria-label="Studio controls" className="space-y-9 lg:pt-6">
-            <fieldset>
-              <legend className="font-medium">Shape</legend>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {SHAPES.map((s) => (
-                  <button
-                    key={s.name}
-                    aria-pressed={shape === s.name}
-                    onClick={() => pickShape(s.name)}
-                    className={
-                      'btn min-h-[44px] px-4 text-sm ' +
-                      (shape === s.name ? (P.dark ? 'bg-white text-ink' : 'btn-ink') : P.dark ? 'border border-white/30 hover:border-white' : 'btn-ghost')
-                    }
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                showText()
-              }}
-            >
-              <label htmlFor="studio-text" className="font-medium">
-                Write with particles
-              </label>
-              <div className="mt-3 flex gap-2">
-                <input
-                  id="studio-text"
-                  value={text}
-                  maxLength={24}
-                  onChange={(e) => setText(e.target.value)}
-                  className={'min-h-[48px] w-full min-w-0 rounded-full border px-5 text-base ' + (P.dark ? 'border-white/30 bg-white/10' : 'border-ink/25 bg-white/70')}
-                />
-                <button type="submit" className={'btn shrink-0 ' + (P.dark ? 'bg-white text-ink' : 'btn-ink')}>
-                  Form it
-                </button>
-              </div>
-            </form>
-
-            <fieldset>
-              <legend className="font-medium">Palette</legend>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {PALETTES.map((p, i) => (
-                  <button
-                    key={p.name}
-                    aria-pressed={palette === i}
-                    aria-label={p.name}
-                    title={p.name}
-                    onClick={() => setPalette(i)}
-                    className={'relative h-12 w-12 rounded-full transition-transform duration-200 active:scale-90 ' + (palette === i ? 'ring-2 ring-current ring-offset-2 ring-offset-transparent' : '')}
-                    style={{ background: `conic-gradient(${p.bg} 0 50%, ${p.base} 0 80%, ${p.accent} 0)` }}
-                  />
-                ))}
-              </div>
-            </fieldset>
-
-            <label className="block">
-              <span className="flex justify-between font-medium">
-                Spin <span className="tabular-nums">{spin.toFixed(1)}×</span>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={4}
-                step={0.1}
-                value={spin}
-                onChange={(e) => setSpin(Number(e.target.value))}
-                className="mt-2 w-full accent-current"
-              />
-            </label>
-
-            <div className="flex flex-wrap gap-3">
-              <button onClick={scatter} className={'btn ' + (P.dark ? 'border border-white/30 hover:border-white' : 'btn-ghost')}>
-                Scatter
-              </button>
-              <button onClick={save} className={'btn ' + (P.dark ? 'bg-white text-ink' : 'btn-ink')}>
-                Save as PNG
-              </button>
-            </div>
-            <p className={'text-sm ' + (P.dark ? 'text-fog/70' : 'text-slate')}>
-              Move your pointer through the particles to push them around.{' '}
-              <a href="/play/" className="link">
-                Want a game instead?
-              </a>
-            </p>
-          </aside>
         </div>
-      </main>
-    </div>
+      )}
+
+      {failed && (
+        <div className="absolute inset-0 grid place-items-center p-6 text-center">
+          <p className="max-w-md">
+            This room needs WebGL, which your browser has turned off.{' '}
+            <a href="/#work" className="link">
+              See my work instead
+            </a>
+            .
+          </p>
+        </div>
+      )}
+
+      {entered && !stop && hoverStop && (
+        <p className={'pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium ' + (dark ? 'bg-white text-ink' : 'bg-ink text-fog')}>
+          {hoverStop.label}
+        </p>
+      )}
+
+      {stop && (
+        <section
+          key={stop.id}
+          aria-live="polite"
+          className="absolute bottom-4 left-4 right-4 animate-[pop_.5s_cubic-bezier(.2,.8,.2,1.3)] rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7"
+        >
+          {touring && (
+            <p className="text-sm tabular-nums text-slate">
+              {tourIndex + 1} of {STOPS.length}
+            </p>
+          )}
+          <h2 className="mt-1 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">{stop.title}</h2>
+          <p className="mt-3 text-slate">{stop.body}</p>
+          {stop.link && (
+            <a href={stop.link.href} className="link mt-3 inline-flex min-h-[44px] items-center font-medium">
+              {stop.link.label}
+            </a>
+          )}
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
+            <button onClick={() => step(-1)} className="btn btn-ghost min-h-[44px] px-4 text-sm">
+              Back
+            </button>
+            <div aria-hidden="true" className="flex gap-1.5">
+              {STOPS.map((s) => (
+                <span key={s.id} className={'h-1.5 w-1.5 rounded-full ' + (s.id === active ? 'bg-volt' : seen.has(s.id) ? 'bg-ink/40' : 'bg-ink/15')} />
+              ))}
+            </div>
+            <button onClick={() => step(1)} className="btn btn-ink min-h-[44px] px-4 text-sm">
+              {tourIndex === STOPS.length - 1 ? 'Finish' : 'Next'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {entered && (
+        <nav aria-label="Things in the room" className="absolute right-4 top-24 hidden max-h-[calc(100svh-8rem)] overflow-auto sm:right-7 md:block">
+          <ul className="space-y-1.5">
+            {STOPS.map((s) => (
+              <li key={s.id}>
+                <button
+                  onClick={() => {
+                    setTouring(false)
+                    open(s.id)
+                  }}
+                  aria-current={active === s.id}
+                  className={
+                    'flex min-h-[40px] w-full items-center gap-2 rounded-full px-4 text-left text-sm font-medium transition-colors ' +
+                    (active === s.id || hover === s.id
+                      ? dark
+                        ? 'bg-white text-ink'
+                        : 'bg-ink text-fog'
+                      : dark
+                        ? 'bg-white/10 hover:bg-white/20'
+                        : 'bg-white/70 hover:bg-white')
+                  }
+                >
+                  <span className={'h-1.5 w-1.5 rounded-full ' + (seen.has(s.id) ? 'bg-volt' : 'bg-current opacity-30')} />
+                  {s.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {entered && !stop && (
+        <p className={'pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-center text-sm ' + (dark ? 'text-mist' : 'text-slate')}>
+          Click anything in the room
+        </p>
+      )}
+    </main>
   )
 }
