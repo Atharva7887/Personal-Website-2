@@ -25,6 +25,13 @@ export const routes: RouteMeta[] = [
     ogImage: `/og/${p.slug}.png`,
   })),
   {
+    path: '/studio/',
+    title: 'Studio — Atharva Shirke',
+    description:
+      'A sketchbook for the particle engine behind atharvar.in: pick a shape, write a word in particles, change the palette and save what you make.',
+    ogImage: '/og/studio.png',
+  },
+  {
     path: '/play/',
     title: 'Find the minimum — a 3D game by Atharva Shirke',
     description:

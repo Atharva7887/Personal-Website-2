@@ -6,6 +6,7 @@ import { Work } from './components/Work'
 import { About, Contact, Services } from './components/Sections'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
+import { Studio } from './pages/Studio'
 import { projects } from './data/projects'
 import { normalise } from './routes'
 
@@ -45,6 +46,15 @@ function useSmoothScroll() {
 export default function App({ path }: { path: string }) {
   useSmoothScroll()
   const route = normalise(path)
+
+  if (route === '/studio/') {
+    return (
+      <>
+        <SkipLink />
+        <Studio />
+      </>
+    )
+  }
 
   if (route === '/play/') {
     return (
