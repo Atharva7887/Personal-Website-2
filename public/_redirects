@@ -1,0 +1,9 @@
+# Old domain alias -> canonical domain
+https://atharvashirke.netlify.app/*  https://atharvar.in/:splat  301!
+
+# Pages from the previous site
+/index2.html  /  301
+/more.html    /#about  301
+/admin.html   /  301
+/blog         /  301
+/blog/*       /  301

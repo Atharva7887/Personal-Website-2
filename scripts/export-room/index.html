@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Export the 3D room</title>
+  </head>
+  <body style="margin: 0; font: 16px system-ui; background: #0b0d1a; color: #e4e7ec">
+    <canvas id="c" style="width: 960px; height: 600px; display: block"></canvas>
+    <p style="padding: 16px">
+      <button id="day">Download room (day).glb</button>
+      <button id="night">Download room (night).glb</button>
+      <span id="status"></span>
+    </p>
+    <script type="module" src="./export.ts"></script>
+  </body>
+</html>
