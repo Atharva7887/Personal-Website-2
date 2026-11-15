@@ -10,6 +10,8 @@ export interface RoomEvents {
 export interface RoomHandle {
   focus: (id: StopId) => void
   setNight: (night: boolean) => void
+  /** The scene graph, for exporting the room (scripts/export-room). */
+  scene: THREE.Scene
   dispose: () => void
 }
 
@@ -72,6 +74,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const group = (id: StopId) => {
     const g = new THREE.Group()
     g.userData.id = id
+    g.name = id.charAt(0).toUpperCase() + id.slice(1)
     scene.add(g)
     groups.set(id, g)
     return g
@@ -81,14 +84,15 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const floorMat = mat('#c9a27e', { roughness: 0.9 })
   const wallMat = mat('#e9e4f2', { roughness: 0.95 })
   const accentWall = mat('#2f45ff', { roughness: 0.9 })
-  box(8, 0.2, 8, floorMat, 0, -0.1, 0)
-  box(8, 5, 0.2, wallMat, 0, 2.5, -4.1)
-  box(0.2, 5, 8, accentWall, -4.1, 2.5, 0)
+  box(8, 0.2, 8, floorMat, 0, -0.1, 0).name = 'Floor'
+  box(8, 5, 0.2, wallMat, 0, 2.5, -4.1).name = 'Back wall'
+  box(0.2, 5, 8, accentWall, -4.1, 2.5, 0).name = 'Side wall'
   // Skirting
   box(8, 0.18, 0.06, mat('#ffffff'), 0, 0.09, -3.98)
   box(0.06, 0.18, 8, mat('#ffffff'), -3.98, 0.09, 0)
   // Rug
   const rug = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.03, 48), mat('#ff9a6b', { roughness: 1 }))
+  rug.name = 'Rug'
   rug.position.set(0.6, 0.02, 0.2)
   rug.receiveShadow = true
   scene.add(rug)
@@ -129,6 +133,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   box(1.0, 0.04, 0.32, mat('#f4f4f6'), 0.2, 1.12, -2.95, desk)
   // Chair
   const chair = new THREE.Group()
+  chair.name = 'Chair'
   scene.add(chair)
   box(0.9, 0.12, 0.9, mat('#0c0f14'), 0.3, 0.75, -1.9, chair)
   box(0.9, 1.0, 0.12, mat('#0c0f14'), 0.3, 1.3, -1.48, chair)
@@ -192,7 +197,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const STEAM = 24
   const steamPos = new Float32Array(STEAM * 3)
   steamGeo.setAttribute('position', new THREE.BufferAttribute(steamPos, 3))
-  const steam = new THREE.Points(steamGeo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.06, transparent: true, opacity: 0.55, depthWrite: false }))
+  const steam: THREE.Points = new THREE.Points(steamGeo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.06, transparent: true, opacity: 0.55, depthWrite: false }))
   scene.add(steam)
   disposables.push(steamGeo, steam.material as THREE.Material)
 
@@ -375,6 +380,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const shadeMat = new THREE.MeshStandardMaterial({ color: '#ffd29a', emissive: '#ffb27a', emissiveIntensity: 0 })
   disposables.push(shadeMat)
   const shade = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.4, 20, 1, true), shadeMat)
+  shade.name = 'Lamp shade'
   shade.position.set(-2.9, 1.95, -0.5)
   scene.add(shade)
   disposables.push(shade.geometry)
@@ -570,6 +576,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   document.addEventListener('visibilitychange', onVis)
 
   return {
+    scene,
     focus,
     setNight(n) {
       night = n
