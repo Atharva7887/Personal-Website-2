@@ -3,6 +3,7 @@ import { Hero } from './components/Hero'
 import { Dock } from './components/Dock'
 import { Marquee } from './components/Marquee'
 import { Work } from './components/Work'
+import { OffTheClock } from './components/OffTheClock'
 import { About, Contact, Services } from './components/Sections'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
@@ -90,6 +91,7 @@ export default function App({ path }: { path: string }) {
         <Work />
         <Services />
         <About />
+        <OffTheClock />
         <Contact />
       </main>
     </>
