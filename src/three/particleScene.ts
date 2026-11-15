@@ -10,10 +10,22 @@ export interface ParticleOptions {
   /** Shift the cloud in world units, per aspect ratio. */
   layout?: (aspect: number) => { x: number; y: number; z: number }
   density?: number
+  /** Keep the drawing buffer so snapshot() works (studio). */
+  preserve?: boolean
 }
 
 export interface ParticleHandle {
   setShape: (name: ShapeName) => void
+  /** Morph to any point set (studio text, scatter). Must hold COUNT * 3 floats or fewer. */
+  setPoints: (pts: Float32Array) => void
+  setColors: (base: string, accent: string) => void
+  /** Multiplier on the idle rotation speed (0 = still). */
+  setSpin: (k: number) => void
+  /** Turn back to face the camera (used before forming text). */
+  faceCamera: () => void
+  /** PNG data URL of the current frame. */
+  snapshot: () => string
+  count: number
   dispose: () => void
 }
 
@@ -30,7 +42,7 @@ export interface ParticleHandle {
 export function mountParticles(canvas: HTMLCanvasElement, opts: ParticleOptions): ParticleHandle {
   const small = Math.min(canvas.clientWidth, window.innerWidth) < 700
   const COUNT = Math.round((small ? 2400 : 5000) * (opts.density ?? 1))
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!opts.preserve })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
@@ -124,6 +136,7 @@ export function mountParticles(canvas: HTMLCanvasElement, opts: ParticleOptions)
   const HOLD = 3.4
   const MORPH = 1.6
   let spin = 0
+  let spinK = 1
   let tiltX = 0
   let tiltY = 0
   let last = performance.now()
@@ -165,9 +178,9 @@ export function mountParticles(canvas: HTMLCanvasElement, opts: ParticleOptions)
     ease.x += (ptr.x - ease.x) * k * 0.6
     ease.y += (ptr.y - ease.y) * k * 0.6
     ease.active += (ptr.active - ease.active) * k * 0.5
-    spin += dt * 0.12
-    tiltY += (ease.x * 0.35 - tiltY) * k * 0.3
-    tiltX += (-ease.y * 0.2 - tiltX) * k * 0.3
+    spin += dt * 0.12 * spinK
+    tiltY += (ease.x * 0.35 * ease.active - tiltY) * k * 0.3
+    tiltX += (-ease.y * 0.2 * ease.active - tiltX) * k * 0.3
     const cy = Math.cos(spin + tiltY)
     const sy = Math.sin(spin + tiltY)
     const cx = Math.cos(tiltX)
@@ -259,10 +272,8 @@ export function mountParticles(canvas: HTMLCanvasElement, opts: ParticleOptions)
   // Initialise positions; reduced motion renders a single still frame.
   frame()
 
-  return {
-    setShape(name) {
-      const next = shape(name, COUNT)
-      if (next === to) return
+  const morphTo = (next: Float32Array) => {
+    if (next === to) return
       if (opts.reduced) {
         to = next
         from.set(next)
@@ -276,6 +287,41 @@ export function mountParticles(canvas: HTMLCanvasElement, opts: ParticleOptions)
       morphStart = clock
       morphing = true
       fromIsRotated = true
+  }
+
+  return {
+    count: COUNT,
+    setShape(name) {
+      morphTo(shape(name, COUNT))
+    },
+    setPoints(pts) {
+      // Pad short point sets by repeating points so every particle has a target.
+      const full = new Float32Array(COUNT * 3)
+      const n = Math.max(1, Math.floor(pts.length / 3))
+      for (let i = 0; i < COUNT; i++) {
+        const j = (i % n) * 3
+        full[i * 3] = pts[j]
+        full[i * 3 + 1] = pts[j + 1]
+        full[i * 3 + 2] = pts[j + 2]
+      }
+      morphTo(full)
+    },
+    setColors(base, accent) {
+      mat.uniforms.uBase.value.set(base)
+      mat.uniforms.uAccent.value.set(accent)
+      if (opts.reduced) frame()
+    },
+    setSpin(k) {
+      spinK = k
+    },
+    faceCamera() {
+      spin = 0
+      tiltY = 0
+      tiltX = 0
+    },
+    snapshot() {
+      renderer.render(scene, camera)
+      return canvas.toDataURL('image/png')
     },
     dispose() {
       cancelAnimationFrame(raf)
