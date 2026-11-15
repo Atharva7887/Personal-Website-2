@@ -26,9 +26,9 @@ export const routes: RouteMeta[] = [
   })),
   {
     path: '/studio/',
-    title: 'Studio — Atharva Shirke',
+    title: 'Studio: my room — Atharva Shirke',
     description:
-      'A sketchbook for the particle engine behind atharvar.in: pick a shape, write a word in particles, change the palette and save what you make.',
+      'Step into my 3D room: every object is something I’ve made. Take the tour or click around: apps, ML pipelines, research and a game.',
     ogImage: '/og/studio.png',
   },
   {
