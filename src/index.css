@@ -1,8 +1,228 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-@import './styles/card.css';
-@import './styles/animations.css';
-@import './styles/components/glitch-button.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    background: #e4e7ec;
+    color: #0c0f14;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  body {
+    @apply bg-fog font-sans text-ink antialiased;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+  ::selection {
+    background: #2f45ff;
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid #2f45ff;
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  .dark :focus-visible {
+    outline-color: #8c99ff;
+  }
+  #contact :focus-visible {
+    outline-color: #ffffff;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-page px-5 sm:px-8 lg:px-12;
+  }
+  /* 44px minimum target (Fitts); quick squash on press (exaggerated feedback). */
+  .btn {
+    @apply relative inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-6 text-base font-medium transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.94];
+  }
+  .btn-ink {
+    @apply bg-ink text-fog hover:bg-volt;
+  }
+  .btn-ghost {
+    @apply border border-ink/25 hover:border-volt hover:text-volt;
+  }
+  .link {
+    @apply underline decoration-1 underline-offset-4 transition-colors duration-150 hover:text-volt hover:decoration-volt;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .dark .link {
+    @apply hover:text-voltsoft hover:decoration-voltsoft;
+  }
+}
+
+/* ---------- Intro: one orchestrated moment, pure CSS so it never blocks content ---------- */
+.intro {
+  display: none;
+}
+html.first-visit .intro {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #0c0f14;
+  color: #e4e7ec;
+  align-items: flex-end;
+  padding: 2rem;
+  pointer-events: none;
+  animation: intro-out 0.7s cubic-bezier(0.76, 0, 0.24, 1) 0.7s forwards;
+}
+@keyframes intro-out {
+  to {
+    transform: translateY(-100%);
+  }
+}
+.intro-count {
+  font-family: 'Bricolage Grotesque Variable', sans-serif;
+  font-size: clamp(4rem, 14vw, 11rem);
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+  counter-reset: n var(--n);
+  animation: count 0.65s steps(100) forwards;
+}
+.intro-count::after {
+  content: counter(n);
+}
+@property --n {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+@keyframes count {
+  to {
+    --n: 100;
+  }
+}
+
+/* Hero type enters after the curtain lifts: anticipation (dip) then rise with overshoot. */
+@keyframes letter-in {
+  0% {
+    transform: translateY(110%) rotate(8deg);
+  }
+  70% {
+    transform: translateY(-6%) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+.hero-word > span {
+  display: inline-block;
+  transform-origin: left bottom;
+}
+.hero-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.06em;
+}
+html.first-visit .hero-word > span {
+  animation: letter-in 0.9s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  animation-delay: calc(0.95s + var(--i, 0) * 70ms);
+  transform-origin: left bottom;
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+html.first-visit .after-intro {
+  animation: fade-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(1.2s + var(--i, 0) * 90ms);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.9); }
+  60% { transform: scale(1.04); }
+  100% { transform: none; }
+}
+
+/* ---------- Marquee (secondary action) ---------- */
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ---------- Scroll reveal (staging) — failsafe if JS never runs ---------- */
+html.js .reveal:not(.is-in) {
+  opacity: 0;
+  transform: translateY(28px);
+  animation: unhide 0s 3.5s forwards;
+}
+.reveal {
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+@keyframes unhide {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Work list: floating preview follows the pointer in an arc ---------- */
+.preview {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  width: 26rem;
+  aspect-ratio: 16 / 10;
+  pointer-events: none;
+  border-radius: 14px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(0.6) rotate(var(--r, 0deg));
+  transition:
+    opacity 0.25s ease-out,
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+}
+.preview.is-on {
+  opacity: 1;
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(1) rotate(var(--r, 0deg));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .intro {
+    display: none;
+  }
+  html.js .reveal:not(.is-in) {
+    opacity: 1;
+    transform: none;
+  }
+}
