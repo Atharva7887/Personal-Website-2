@@ -8,7 +8,10 @@ import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
-import { buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
+import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
+import { buildBackyard } from './room/backyard'
+import { GARDEN, inGarden } from './room/layout'
+import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
 export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery' | 'shelf' | 'plant' | 'arcade' | 'window' | 'door' | 'garden' | 'mug'
@@ -18,12 +21,18 @@ export interface RoomEvents {
   onSelect: (id: StopId) => void
   /** Model download progress, 0 to 1. */
   onProgress?: (p: number) => void
+  /** While walking: which place you are in now. */
+  onPlace?: (p: PlaceId) => void
 }
 
 export interface RoomHandle {
   focus: (id: StopId) => void
   /** Stand somewhere at eye height and look around (drag turns your head). */
   stand: (place: PlaceId) => void
+  /** Walk around in first person, starting where you stand in a place (or where you last stopped walking). */
+  walk: (place: PlaceId, resume?: boolean) => void
+  /** The on-screen stick for touch screens: strafe and forward, each -1..1. */
+  setStick: (x: number, y: number) => void
   setNight: (night: boolean) => void
   /** The scene graph, for exporting the room (scripts/export-room). */
   scene: THREE.Scene
@@ -71,6 +80,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
+  // Dev only: lets the headless checks read where the camera is.
+  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene })
   const kit = makeKit(scene)
   const { track, mat, mesh, box, tbox, cyl } = kit
 
@@ -479,8 +490,12 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // ---------- Garden ----------
   const garden = group('garden')
   const outside = buildGarden(kit)
-  // The lawn near the door is the garden's click target.
-  pickBox(6.2, 0.1, 9, -7.4, 0.02, 1.6, garden)
+  const yardRoot = new THREE.Group()
+  yardRoot.name = 'Backyard'
+  scene.add(yardRoot)
+  const yard = buildBackyard(kit, yardRoot)
+  // The lawn is the garden's click target.
+  pickBox(8.6, 0.1, 9, -8.6, 0.02, 1.6, garden)
 
   // ---------- Models ----------
   const loaded: THREE.Object3D[] = []
@@ -753,6 +768,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // in the evening it sits low in the west, so it shows through the window.
   const sky = buildSky(45)
   scene.add(sky.mesh)
+  const ground = buildGround(42)
+  scene.add(ground.mesh)
   const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
   const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
   const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
@@ -764,6 +781,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const dir = night ? SUN_SUNSET : SUN_DAY
     sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
     sky.set(night ? SKY_SUNSET : SKY_DAY, dir, night ? 1 : 0)
+    ground.set(night ? '#2b2a3a' : '#9fb489', (night ? SKY_SUNSET : SKY_DAY).horizon)
     scene.environmentIntensity = night ? 0.16 : 0.5
     hemi.intensity = night ? 0.32 : 0.6
     hemi.color.set(night ? '#ffb38a' : '#ffffff')
@@ -780,6 +798,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     greenhouseGlow.intensity = night ? 9 : 0
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
+    yard.setNight(night)
   }
   applyNight()
 
@@ -860,6 +879,13 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   }
   // When a flight ends while standing, pull the orbit point in to just in front of the eye.
   const land = () => {
+    if (pendingWalk) {
+      const p = pendingWalk
+      pendingWalk = null
+      controls.enabled = false
+      walker.start(p)
+      return
+    }
     if (!standing) return
     const dir = toLook.clone().sub(toPos).normalize()
     camLook.copy(toPos).addScaledVector(dir, EYE)
@@ -885,7 +911,37 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   canvas.addEventListener('pointerdown', onZoomDown, { capture: true })
   canvas.addEventListener('wheel', onZoomWheel, { capture: true })
 
+  // First person: the walker drives the camera; the orbit controls stand aside.
+  const walker = createWalker(camera, canvas, opts.reduced)
+  let pendingWalk: Pose | null = null
+  let lastWalk: Pose | null = null
+  let walkPlace: PlaceId | null = null
+  const stopWalking = () => {
+    if (walker.active) lastWalk = { ...walker.pose }
+    walker.stop()
+    pendingWalk = null
+    controls.enabled = true
+  }
+  const walk = (id: PlaceId, resume = false) => {
+    const place = PLACES.find((p) => p.id === id)
+    if (!place) return
+    const from = resume && lastWalk ? lastWalk : null
+    const pos = from ? new THREE.Vector3(from.x, 2.4, from.z) : new THREE.Vector3(...place.stand.pos)
+    const look = from
+      ? pos.clone().add(new THREE.Vector3(Math.sin(from.yaw) * Math.cos(from.pitch), Math.sin(from.pitch), Math.cos(from.yaw) * Math.cos(from.pitch)))
+      : new THREE.Vector3(...place.stand.look)
+    const dir = look.clone().sub(pos).normalize()
+    standing = null
+    current = id === 'garden' ? 'garden' : 'overview'
+    walkPlace = inGarden(pos.x) ? 'garden' : 'room'
+    doorTarget = DOOR_OPEN // the door stays open so you can walk through
+    setStand()
+    pendingWalk = { x: pos.x, z: pos.z, yaw: Math.atan2(dir.x, dir.z), pitch: Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)) }
+    fly(pos, look)
+  }
+
   const focus = (id: StopId) => {
+    stopWalking()
     current = id
     standing = null
     const view = viewOf(id)
@@ -899,6 +955,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const stand = (id: PlaceId) => {
     const place = PLACES.find((p) => p.id === id)
     if (!place) return
+    stopWalking()
     current = id === 'garden' ? 'garden' : 'overview'
     standing = id
     setStand()
@@ -915,7 +972,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     camera.fov = w / h < 1 ? 58 : 38
     camera.updateProjectionMatrix()
     // Keep the overview framed when the window changes shape.
-    if (current === 'overview' && !standing && flyT >= 1 && !userMoved) {
+    if (current === 'overview' && !standing && !walker.active && !pendingWalk && flyT >= 1 && !userMoved) {
       camPos.copy(viewOf('overview').pos)
       toPos.copy(camPos)
       camera.position.copy(camPos)
@@ -953,6 +1010,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const onUp = (e: PointerEvent) => {
     if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return
     const id = pick(e)
+    if (yard.poke(ray)) return // the dog hops
     if (id) {
       pop.set(id, 1)
       ev.onSelect(id)
@@ -994,16 +1052,27 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       camera.lookAt(camLook)
+    } else if (walker.update(dt)) {
+      camPos.copy(camera.position)
+      camera.getWorldDirection(camLook).multiplyScalar(3).add(camera.position)
+      const here: PlaceId = inGarden(camera.position.x) ? 'garden' : 'room'
+      if (here !== walkPlace) {
+        walkPlace = here
+        current = here === 'garden' ? 'garden' : 'overview'
+        ev.onPlace?.(here)
+      }
     } else {
       controls.update(dt)
       camPos.copy(camera.position)
       camLook.copy(controls.target)
     }
     sky.follow(camera)
+    ground.mesh.visible = camera.position.y < 5.5 // eye level only; from above the room floats on the page
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
-    sideWall.forEach((w) => (w.visible = camera.position.x > -10 || current === 'garden'))
+    yard.showNeighbour(camera.position)
+    sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
 
     // Door eases towards open or ajar.
     doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
@@ -1043,6 +1112,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         v.rotation.z = Math.cos(t * 0.7 + i) * 0.025
       })
       outside.update(t)
+      yard.update(t, dt, camera.position)
     }
 
     renderer.render(scene, camera)
@@ -1064,6 +1134,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     ready,
     focus,
     stand,
+    walk,
+    setStick: (x, y) => walker.setStick(x, y),
     setNight(n) {
       night = n
       applyNight()
@@ -1086,6 +1158,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       envTarget.dispose()
       envScene.dispose()
       sky.dispose()
+      ground.dispose()
+      walker.dispose()
       renderer.dispose()
     },
   }

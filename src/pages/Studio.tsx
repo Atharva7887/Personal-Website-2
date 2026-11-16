@@ -142,9 +142,15 @@ export function Studio() {
   const [manualLight, setManualLight] = useState(false) // once the visitor flips the lights, the clock stops overriding them
   const manualRef = useRef(false)
   const [loaded, setLoaded] = useState(false)
+  const [walking, setWalking] = useState(false) // first person
+  const resumeWalk = useRef(false) // a card opened mid-walk: closing it carries on walking
   const main = useRef<HTMLElement>(null)
 
   const open = (id: Stop['id']) => {
+    if (walking) {
+      resumeWalk.current = true
+      setWalking(false)
+    }
     setActive(id)
     setPlace(placeOf(id))
     setSeen((s) => new Set(s).add(id))
@@ -187,6 +193,7 @@ export function Studio() {
               openRef.current(id)
             },
             onProgress: (p) => !cancelled && setProgress((old) => Math.max(old, p)),
+            onPlace: (p) => !cancelled && setPlace(p),
           },
           { reduced, night: puneIsNight() },
         )
@@ -216,6 +223,8 @@ export function Studio() {
     setActive(null)
     setTouring(false)
     setPlace(null)
+    setWalking(false)
+    resumeWalk.current = false
     room.current?.focus('overview')
   }
   const standIn = (id: PlaceId) => {
@@ -224,10 +233,25 @@ export function Studio() {
     setActive(null)
     setTouring(false)
     setPlace(id)
+    setWalking(false)
+    resumeWalk.current = false
     room.current?.stand(id)
   }
-  // Closing a card puts you back where you were standing (or above the house, if you weren't).
-  const closeCard = () => (place ? standIn(place) : overview())
+  const walkIn = (id: PlaceId, resume = false) => {
+    setEntered(true)
+    setChoosing(false)
+    setActive(null)
+    setTouring(false)
+    setPlace(id)
+    setWalking(true)
+    resumeWalk.current = false
+    room.current?.walk(id, resume)
+  }
+  // Closing a card puts you back where you were: walking, standing, or above the house.
+  const closeCard = () => {
+    if (resumeWalk.current) return walkIn(place ?? 'room', true)
+    return place ? standIn(place) : overview()
+  }
   const tourIndex = active ? STOPS.findIndex((s) => s.id === active) : -1
   const startTour = () => {
     setEntered(true)
@@ -245,7 +269,7 @@ export function Studio() {
   const wheel = useRef({ acc: 0, lockedUntil: 0 })
   const onWheelRef = useRef<(e: WheelEvent) => void>(() => {})
   onWheelRef.current = (e: WheelEvent) => {
-    if (e.ctrlKey || credits || failed || !loaded) return
+    if (e.ctrlKey || credits || failed || !loaded || walking) return // walking: the wheel steps you forward instead
     const w = wheel.current
     const now = performance.now()
     if (now < w.lockedUntil) {
@@ -280,6 +304,11 @@ export function Studio() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setCredits(false)
       if (!entered) return
+      if (walking) {
+        // The arrow keys walk; Escape stops and stands you where you are.
+        if (e.key === 'Escape') standIn(place ?? 'room')
+        return
+      }
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') step(1)
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') step(-1)
       if (e.key === 'Escape') closeCard()
@@ -349,7 +378,7 @@ export function Studio() {
             return (
               <button
                 key={p.label}
-                onClick={() => (p.id ? standIn(p.id) : overview())}
+                onClick={() => (p.id ? (walking ? walkIn(p.id) : standIn(p.id)) : overview())}
                 aria-current={here ? 'location' : undefined}
                 className={
                   'min-h-[40px] whitespace-nowrap rounded-full px-4 transition-colors ' +
@@ -360,6 +389,21 @@ export function Studio() {
               </button>
             )
           })}
+          <span aria-hidden="true" className={'my-2 w-px ' + (dark ? 'bg-white/20' : 'bg-ink/15')} />
+          <button
+            onClick={() => (walking ? standIn(place ?? 'room') : walkIn(place ?? 'room'))}
+            aria-pressed={walking}
+            className={
+              'flex min-h-[40px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 transition-colors ' +
+              (walking ? 'bg-volt text-white' : dark ? 'hover:bg-white/15' : 'hover:bg-white')
+            }
+          >
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="13" cy="4" r="2" />
+              <path d="M9 20l2-6-3-2 1-4 4 2 3 1M11 14l3 2v4M8 12l-2 3" />
+            </svg>
+            Walk
+          </button>
         </nav>
       )}
 
@@ -419,7 +463,7 @@ export function Studio() {
             </p>
             {choosing ? (
               <div key="where" className="mt-7" style={{ animation: 'fade-up .45s cubic-bezier(.2,.8,.2,1) both' }}>
-                <p className={'mb-3 text-sm ' + (dark ? 'text-fog/80' : 'text-slate')}>Where do you want to stand?</p>
+                <p className={'mb-3 text-sm ' + (dark ? 'text-fog/80' : 'text-slate')}>How do you want to look around?</p>
                 <div className="flex flex-wrap items-center gap-3">
                   {PLACES.map((p, i) => (
                     <button
@@ -433,6 +477,12 @@ export function Studio() {
                       {p.cta}
                     </button>
                   ))}
+                  <button
+                    onClick={() => walkIn('room')}
+                    className={'btn px-7 text-lg ' + (dark ? 'border border-white/40 hover:border-white' : 'btn-ghost bg-white/60')}
+                  >
+                    Walk around
+                  </button>
                   <button onClick={() => setChoosing(false)} className={'min-h-[44px] px-2 text-sm underline underline-offset-4 ' + (dark ? 'text-fog/80' : 'text-slate')}>
                     Back
                   </button>
@@ -543,10 +593,19 @@ export function Studio() {
 
       {entered && !stop && (
         <p className={'pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-3 py-1 text-center text-sm backdrop-blur ' + (dark ? 'bg-black/30 text-mist' : 'bg-white/60 text-slate')}>
-          <span className="[@media(hover:none)]:hidden">
-            {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything
-          </span>
-          <span className="hidden [@media(hover:none)]:inline">{place ? 'Drag to look around' : 'Drag to turn the room'} · tap anything</span>
+          {walking ? (
+            <>
+              <span className="[@media(hover:none)]:hidden">W A S D or the arrow keys to walk · drag to look · Shift to hurry · Esc to stop</span>
+              <span className="hidden [@media(hover:none)]:inline">Use the stick to walk · drag to look · tap anything</span>
+            </>
+          ) : (
+            <>
+              <span className="[@media(hover:none)]:hidden">
+                {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything
+              </span>
+              <span className="hidden [@media(hover:none)]:inline">{place ? 'Drag to look around' : 'Drag to turn the room'} · tap anything</span>
+            </>
+          )}
         </p>
       )}
 
@@ -560,6 +619,8 @@ export function Studio() {
           />
         </div>
       )}
+
+      {walking && !stop && <WalkStick onMove={(x, y) => room.current?.setStick(x, y)} dark={dark} />}
 
       <StudioLoader progress={progress} done={loaded || failed} dark={dark} />
 
@@ -637,6 +698,44 @@ function StudioLoader({ progress, done, dark }: { progress: number; done: boolea
       <p aria-hidden="true" className={'mt-3 text-sm sm:hidden ' + (dark ? 'text-fog/70' : 'text-slate')}>
         {LOADING_LINES[line]}…
       </p>
+    </div>
+  )
+}
+
+/** A thumb stick for walking on touch screens (hidden where there is a mouse). */
+function WalkStick({ onMove, dark }: { onMove: (x: number, y: number) => void; dark: boolean }) {
+  const knob = useRef<HTMLSpanElement>(null)
+  const R = 44
+  const set = (dx: number, dy: number) => {
+    const d = Math.hypot(dx, dy)
+    const k = d > R ? R / d : 1
+    const x = dx * k
+    const y = dy * k
+    if (knob.current) knob.current.style.transform = `translate(${x}px, ${y}px)`
+    onMove(x / R, -y / R)
+  }
+  const centre = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  }
+  return (
+    <div
+      role="presentation"
+      className={'absolute bottom-20 left-6 z-10 grid h-28 w-28 touch-none place-items-center rounded-full border backdrop-blur [@media(hover:hover)]:hidden ' + (dark ? 'border-white/25 bg-[#0b0d1a]/50' : 'border-ink/15 bg-white/60')}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        const c = centre(e.currentTarget)
+        set(e.clientX - c.x, e.clientY - c.y)
+      }}
+      onPointerMove={(e) => {
+        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+        const c = centre(e.currentTarget)
+        set(e.clientX - c.x, e.clientY - c.y)
+      }}
+      onPointerUp={() => set(0, 0)}
+      onPointerCancel={() => set(0, 0)}
+    >
+      <span ref={knob} className={'h-12 w-12 rounded-full shadow ' + (dark ? 'bg-white' : 'bg-ink')} />
     </div>
   )
 }

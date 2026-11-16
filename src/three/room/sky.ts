@@ -92,3 +92,51 @@ export function buildSky(radius: number) {
     },
   }
 }
+
+/**
+ * Distant ground for eye-level views: fields that fade into the horizon colour, so walking to the fence
+ * doesn't look out over the empty page. Hidden from above, where the room floats on the page.
+ */
+export function buildGround(radius: number) {
+  const uniforms = {
+    ground: { value: new THREE.Color('#9fb489') },
+    horizon: { value: new THREE.Color('#eef1f5') },
+    fade: { value: new THREE.Vector2(14, radius * 0.9) },
+  }
+  const mat = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: /* glsl */ `
+      varying vec2 vXZ;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vXZ = w.xz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 ground;
+      uniform vec3 horizon;
+      uniform vec2 fade;
+      varying vec2 vXZ;
+      void main() {
+        float d = length(vXZ - vec2(-4.0, 0.0));
+        gl_FragColor = vec4(mix(ground, horizon, smoothstep(fade.x, fade.y, d)), 1.0);
+        #include <colorspace_fragment>
+      }`,
+  })
+  const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), mat)
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(-4, -0.3, 0)
+  mesh.raycast = () => {}
+  mesh.visible = false
+  return {
+    mesh,
+    set(ground: string, horizon: string) {
+      uniforms.ground.value.set(ground)
+      uniforms.horizon.value.set(horizon)
+    },
+    dispose() {
+      mesh.geometry.dispose()
+      mat.dispose()
+    },
+  }
+}
