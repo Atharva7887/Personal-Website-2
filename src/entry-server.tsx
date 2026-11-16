@@ -5,6 +5,15 @@ import { absolute, routes, type RouteMeta } from './routes'
 
 export { routes }
 
+/** The page Netlify shows for any address that doesn't exist (written to dist/404.html). */
+export const notFound: RouteMeta = {
+  path: '/404/',
+  title: 'Page not found — Atharva Shirke',
+  description: 'This page doesn’t exist. Head back to Atharva Shirke’s home page, work, studio or game.',
+  ogImage: '/og.png',
+  jsonld: [],
+}
+
 export function render(path: string): string {
   return renderToString(
     <StrictMode>

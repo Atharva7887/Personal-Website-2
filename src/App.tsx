@@ -9,6 +9,7 @@ import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
 import { Studio } from './pages/Studio'
 import { SitemapPage } from './pages/SitemapPage'
+import { NotFound } from './pages/NotFound'
 import { projects } from './data/projects'
 import { normalise } from './routes'
 
@@ -84,6 +85,16 @@ export default function App({ path }: { path: string }) {
         <SkipLink />
         <Dock />
         <CaseStudy project={project} />
+      </>
+    )
+  }
+
+  // Anything else that isn't the home page is a 404 (Netlify serves dist/404.html for it).
+  if (route !== '/') {
+    return (
+      <>
+        <SkipLink />
+        <NotFound />
       </>
     )
   }
