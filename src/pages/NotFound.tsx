@@ -218,10 +218,14 @@ export function NotFound() {
       </div>
 
       <section className="mx-auto w-full max-w-3xl px-5 pb-12 pt-4 text-center sm:px-8">
-        <h1 className="font-display text-[clamp(2.4rem,6vw,4.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">This page is an outlier.</h1>
+        <h1 className="font-display text-[clamp(2.4rem,6vw,4.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">This page doesn’t exist.</h1>
         <p className="mx-auto mt-5 max-w-xl text-lg text-slate">
-          It sits about 4.04 standard deviations from anything on this site. The link may be old, or the address mistyped. Nudge the dots while you’re here, or head back.
+          The address may have changed.{' '}
+          <a href="/" className="font-medium text-ink underline decoration-volt decoration-2 underline-offset-4 hover:text-volt">
+            Go to the home page.
+          </a>
         </p>
+        <p className="mx-auto mt-2 max-w-xl text-slate">An outlier, about 4.04 standard deviations from anything here. Nudge the dots while you’re at it.</p>
         <nav aria-label="Ways back" className="mt-8 flex flex-wrap justify-center gap-3">
           <a href="/" className="btn btn-ink px-7">
             Back to the home page
