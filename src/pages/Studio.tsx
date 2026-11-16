@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { EMAIL, RESUME_URL } from '../data/site'
 import { useReducedMotion } from '../components/motion'
 import type { RoomHandle, StopId } from '../three/room'
+import { PLACES, placeOf, type PlaceId } from '../three/places'
 
 interface Stop {
   id: Exclude<StopId, 'overview'>
@@ -110,10 +111,16 @@ const CREDITS = [
   { what: 'Mug', title: 'Coffee Mug (School Project)', by: 'Ole Gunnar Isager', href: 'https://sketchfab.com/3d-models/coffee-mug-school-project-5f5ccee1514c440887c072fae8e0d699' },
 ]
 
+// Day and night follow the clock in Pune (IST), wherever the visitor is: night from 7 pm to 6 am.
+// The same rule runs as an inline script before the page paints (NIGHT_SCRIPT), so night visitors never see a flash of day.
 function puneIsNight() {
   const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Kolkata' }).format(new Date()))
   return h < 6 || h >= 19
 }
+const NIGHT_SCRIPT =
+  "try{var h=+new Intl.DateTimeFormat('en-GB',{hour:'numeric',hourCycle:'h23',timeZone:'Asia/Kolkata'}).format(new Date());if(h<6||h>=19)document.documentElement.dataset.studioNight=''}catch(e){}"
+const puneTime = () =>
+  new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).format(new Date()).toLowerCase()
 
 export function Studio() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -129,18 +136,38 @@ export function Studio() {
   const [credits, setCredits] = useState(false)
   const [dir, setDir] = useState<1 | -1>(1) // which way the visitor last moved through the tour
   const [progress, setProgress] = useState(0)
+  const [place, setPlace] = useState<PlaceId | null>(null) // where the visitor is standing, if anywhere
+  const [choosing, setChoosing] = useState(false) // the intro is asking where to stand
+  const [clock, setClock] = useState('')
+  const [manualLight, setManualLight] = useState(false) // once the visitor flips the lights, the clock stops overriding them
+  const manualRef = useRef(false)
   const [loaded, setLoaded] = useState(false)
   const main = useRef<HTMLElement>(null)
 
   const open = (id: Stop['id']) => {
     setActive(id)
+    setPlace(placeOf(id))
     setSeen((s) => new Set(s).add(id))
     room.current?.focus(id)
   }
   const openRef = useRef(open)
   openRef.current = open
 
-  useEffect(() => setNight(puneIsNight()), [])
+  // The lights and the clock label follow Pune time, checked every half minute.
+  useEffect(() => {
+    const tick = () => {
+      setClock(puneTime())
+      if (!manualRef.current) setNight(puneIsNight())
+    }
+    tick()
+    const t = window.setInterval(tick, 30000)
+    return () => window.clearInterval(t)
+  }, [])
+  // The pre-paint flag has done its job once React knows about the night.
+  // (The clock is set in the same render as the lights, so by now the page shows the right one.)
+  useEffect(() => {
+    if (clock) delete document.documentElement.dataset.studioNight
+  }, [clock])
 
   useEffect(() => {
     const c = canvas.current
@@ -188,8 +215,19 @@ export function Studio() {
   const overview = () => {
     setActive(null)
     setTouring(false)
+    setPlace(null)
     room.current?.focus('overview')
   }
+  const standIn = (id: PlaceId) => {
+    setEntered(true)
+    setChoosing(false)
+    setActive(null)
+    setTouring(false)
+    setPlace(id)
+    room.current?.stand(id)
+  }
+  // Closing a card puts you back where you were standing (or above the house, if you weren't).
+  const closeCard = () => (place ? standIn(place) : overview())
   const tourIndex = active ? STOPS.findIndex((s) => s.id === active) : -1
   const startTour = () => {
     setEntered(true)
@@ -244,7 +282,7 @@ export function Studio() {
       if (!entered) return
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') step(1)
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') step(-1)
-      if (e.key === 'Escape') overview()
+      if (e.key === 'Escape') closeCard()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -256,6 +294,7 @@ export function Studio() {
 
   return (
     <main ref={main} id="main" className={'relative h-[100svh] overflow-hidden transition-colors duration-700 ' + (dark ? 'dark bg-[#0b0d1a] text-fog' : 'bg-fog text-ink')}>
+      <script dangerouslySetInnerHTML={{ __html: NIGHT_SCRIPT }} />
       <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full touch-manipulation" />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-7">
@@ -272,21 +311,57 @@ export function Studio() {
             Credits
           </button>
         </div>
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex flex-col items-end">
+          <div className="flex items-center gap-2">
           <button
-            onClick={() => setNight((n) => !n)}
+            onClick={() => {
+              manualRef.current = true
+              setManualLight(true)
+              setNight((n) => !n)
+            }}
             aria-pressed={night}
             className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'border border-white/30 hover:border-white' : 'btn-ghost bg-white/60')}
           >
             {night ? 'Lights on' : 'Lights off'}
           </button>
           {entered && active && (
-            <button onClick={overview} className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'bg-white text-ink' : 'btn-ink')}>
-              Whole room
+            <button onClick={closeCard} className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'bg-white text-ink' : 'btn-ink')}>
+              Close
             </button>
+          )}
+          </div>
+          {clock && (
+            <p className={'mt-1.5 rounded-full px-2.5 py-1 text-xs tabular-nums backdrop-blur ' + (dark ? 'bg-white/10 text-fog/80' : 'bg-white/70 text-slate')}>
+              {clock} in Pune{manualLight ? '' : night ? ' · night' : ' · day'}
+            </p>
           )}
         </div>
       </header>
+
+      {/* Where you are: each place you can stand, plus the view from above. More rooms slot in here. */}
+      {entered && (
+        <nav
+          aria-label="Places"
+          className={'absolute left-1/2 top-[7.5rem] z-10 flex -translate-x-1/2 gap-1 rounded-full p-1 text-sm font-medium shadow-sm backdrop-blur sm:top-7 ' + (dark ? 'bg-white/10' : 'bg-white/70')}
+        >
+          {[...PLACES.map((p) => ({ id: p.id as PlaceId | null, label: p.label })), { id: null as PlaceId | null, label: 'From above' }].map((p) => {
+            const here = p.id === null ? !place && !active : place === p.id
+            return (
+              <button
+                key={p.label}
+                onClick={() => (p.id ? standIn(p.id) : overview())}
+                aria-current={here ? 'location' : undefined}
+                className={
+                  'min-h-[40px] whitespace-nowrap rounded-full px-4 transition-colors ' +
+                  (here ? (dark ? 'bg-white text-ink' : 'bg-ink text-fog') : dark ? 'hover:bg-white/15' : 'hover:bg-white')
+                }
+              >
+                {p.label}
+              </button>
+            )
+          })}
+        </nav>
+      )}
 
       {credits && (
         <section
@@ -342,14 +417,37 @@ export function Studio() {
             <p className={'mt-5 max-w-lg text-lg ' + (dark ? 'text-fog/85' : 'text-slate')}>
               Everything in here is something I’ve made or care about. Drag to turn the room, scroll to walk through it, or let me show you.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <button onClick={startTour} className={'btn px-7 text-lg ' + (dark ? 'bg-white text-ink hover:bg-voltsoft' : 'btn-ink')}>
-                Take the tour
-              </button>
-              <button onClick={() => setEntered(true)} className={'btn ' + (dark ? 'border border-white/40 hover:border-white' : 'btn-ghost bg-white/60')}>
-                Look around myself
-              </button>
-            </div>
+            {choosing ? (
+              <div key="where" className="mt-7" style={{ animation: 'fade-up .45s cubic-bezier(.2,.8,.2,1) both' }}>
+                <p className={'mb-3 text-sm ' + (dark ? 'text-fog/80' : 'text-slate')}>Where do you want to stand?</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {PLACES.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => standIn(p.id)}
+                      className={
+                        'btn px-7 text-lg ' +
+                        (i === 0 ? (dark ? 'bg-white text-ink hover:bg-voltsoft' : 'btn-ink') : dark ? 'border border-white/40 hover:border-white' : 'btn-ghost bg-white/60')
+                      }
+                    >
+                      {p.cta}
+                    </button>
+                  ))}
+                  <button onClick={() => setChoosing(false)} className={'min-h-[44px] px-2 text-sm underline underline-offset-4 ' + (dark ? 'text-fog/80' : 'text-slate')}>
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div key="start" className="mt-7 flex flex-wrap gap-3">
+                <button onClick={startTour} className={'btn px-7 text-lg ' + (dark ? 'bg-white text-ink hover:bg-voltsoft' : 'btn-ink')}>
+                  Take the tour
+                </button>
+                <button onClick={() => setChoosing(true)} className={'btn ' + (dark ? 'border border-white/40 hover:border-white' : 'btn-ghost bg-white/60')}>
+                  Look around myself
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -367,7 +465,7 @@ export function Studio() {
       )}
 
       {entered && !stop && hoverStop && (
-        <p className={'pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium ' + (dark ? 'bg-white text-ink' : 'bg-ink text-fog')}>
+        <p className={'pointer-events-none absolute left-1/2 top-[11rem] -translate-x-1/2 rounded-full px-4 py-2 sm:top-24 text-sm font-medium ' + (dark ? 'bg-white text-ink' : 'bg-ink text-fog')}>
           {hoverStop.label}
         </p>
       )}
@@ -408,9 +506,12 @@ export function Studio() {
       )}
 
       {entered && (
-        <nav aria-label="Things in the room" className="absolute right-4 top-24 hidden max-h-[calc(100svh-8rem)] overflow-auto sm:right-7 md:block">
+        <nav aria-label="Things in the room" className="absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto sm:right-7 md:block">
+          {PLACES.map((pl) => (
+            <div key={pl.id} className="mb-3">
+              <p className={'mb-1.5 px-1 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'text-fog/60' : 'text-slate')}>{pl.label}</p>
           <ul className="space-y-1.5">
-            {STOPS.map((s) => (
+            {STOPS.filter((s) => placeOf(s.id) === pl.id).map((s) => (
               <li key={s.id}>
                 <button
                   onClick={() => {
@@ -435,13 +536,17 @@ export function Studio() {
               </li>
             ))}
           </ul>
+            </div>
+          ))}
         </nav>
       )}
 
       {entered && !stop && (
-        <p className={'pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 text-center text-sm ' + (dark ? 'text-mist' : 'text-slate')}>
-          <span className="[@media(hover:none)]:hidden">Drag to turn the room · scroll to walk through it · click anything</span>
-          <span className="hidden [@media(hover:none)]:inline">Drag to turn the room · tap anything</span>
+        <p className={'pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-3 py-1 text-center text-sm backdrop-blur ' + (dark ? 'bg-black/30 text-mist' : 'bg-white/60 text-slate')}>
+          <span className="[@media(hover:none)]:hidden">
+            {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything
+          </span>
+          <span className="hidden [@media(hover:none)]:inline">{place ? 'Drag to look around' : 'Drag to turn the room'} · tap anything</span>
         </p>
       )}
 

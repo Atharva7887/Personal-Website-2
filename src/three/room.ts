@@ -7,6 +7,7 @@ import dracoJs from 'three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js?ur
 import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url'
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
+import { PLACES, type PlaceId } from './places'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
 export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery' | 'shelf' | 'plant' | 'arcade' | 'window' | 'door' | 'garden' | 'mug'
@@ -20,6 +21,8 @@ export interface RoomEvents {
 
 export interface RoomHandle {
   focus: (id: StopId) => void
+  /** Stand somewhere at eye height and look around (drag turns your head). */
+  stand: (place: PlaceId) => void
   setNight: (night: boolean) => void
   /** The scene graph, for exporting the room (scripts/export-room). */
   scene: THREE.Scene
@@ -806,38 +809,85 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     if (flyT < 1) {
       // Grabbing mid-flight stops the flight where it is.
       flyT = 1
+      if (standing) {
+        // Standing: stop where the flight is and turn on the spot from there.
+        const dir = camLook.clone().sub(camera.position).normalize()
+        camLook.copy(camera.position).addScaledVector(dir, EYE)
+      }
       controls.target.copy(camLook)
     }
   }
   controls.addEventListener('start', onControlsStart)
   // Runs before the controls see the wheel: only ctrl + wheel (a trackpad pinch) zooms; touch pinch always can.
-  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey)
-  const onZoomDown = () => (controls.enableZoom = true)
-  canvas.addEventListener('pointerdown', onZoomDown, { capture: true })
-  canvas.addEventListener('wheel', onZoomWheel, { capture: true })
+  // Standing somewhere, there is nothing to zoom: you look around instead.
+  let standing: PlaceId | null = null
+  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey && !standing)
+  const onZoomDown = () => (controls.enableZoom = !standing)
 
-  const focus = (id: StopId) => {
+  // Orbit: the camera circles what it looks at. Standing: the camera stays put and turns on the spot,
+  // done by orbiting a point a few centimetres in front of the eye. A drag moves the view the way
+  // the pointer goes, like turning your head.
+  const EYE = 0.05
+  const setOrbit = (min: number, max: number) => {
+    controls.rotateSpeed = 0.7
+    controls.minDistance = min
+    controls.maxDistance = max
+    controls.minPolarAngle = 0.15
+    controls.maxPolarAngle = 1.48 // never below the floor
+  }
+  const setStand = () => {
+    controls.rotateSpeed = -0.35
+    controls.minDistance = controls.maxDistance = EYE
+    controls.minPolarAngle = 0.55 // look down at the floor…
+    controls.maxPolarAngle = 2.35 // …or up at the ceiling
+    controls.enableZoom = false
+  }
+  // When a flight ends while standing, pull the orbit point in to just in front of the eye.
+  const land = () => {
+    if (!standing) return
+    const dir = toLook.clone().sub(toPos).normalize()
+    camLook.copy(toPos).addScaledVector(dir, EYE)
+    controls.target.copy(camLook)
+  }
+  const fly = (pos: THREE.Vector3, look: THREE.Vector3) => {
     fromPos = camPos.clone()
     fromLook = camLook.clone()
-    current = id
-    const view = viewOf(id)
-    toPos = view.pos
-    toLook = view.look
+    toPos = pos
+    toLook = look
     flyT = opts.reduced ? 1 : 0
     userMoved = false
     controls.autoRotate = false
-    // Close up, the camera stays near the thing; the whole room can be seen from further out.
-    controls.minDistance = id === 'overview' ? 4 : 0.8
-    controls.maxDistance = id === 'overview' ? 34 : Math.max(4, toPos.distanceTo(toLook) * 2.2)
-    // The door swings wide when you head for the garden.
-    doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
     if (opts.reduced) {
       camPos.copy(toPos)
       camLook.copy(toLook)
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       doorAngle = doorTarget
+      land()
     }
+  }
+  canvas.addEventListener('pointerdown', onZoomDown, { capture: true })
+  canvas.addEventListener('wheel', onZoomWheel, { capture: true })
+
+  const focus = (id: StopId) => {
+    current = id
+    standing = null
+    const view = viewOf(id)
+    // Close up, the camera stays near the thing; the whole room can be seen from further out.
+    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 34 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
+    // The door swings wide when you head for the garden.
+    doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
+    fly(view.pos, view.look)
+  }
+
+  const stand = (id: PlaceId) => {
+    const place = PLACES.find((p) => p.id === id)
+    if (!place) return
+    current = id === 'garden' ? 'garden' : 'overview'
+    standing = id
+    setStand()
+    doorTarget = id === 'garden' ? DOOR_OPEN : DOOR_AJAR
+    fly(new THREE.Vector3(...place.stand.pos), new THREE.Vector3(...place.stand.look))
   }
 
   const resize = () => {
@@ -849,7 +899,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     camera.fov = w / h < 1 ? 58 : 38
     camera.updateProjectionMatrix()
     // Keep the overview framed when the window changes shape.
-    if (current === 'overview' && flyT >= 1 && !userMoved) {
+    if (current === 'overview' && !standing && flyT >= 1 && !userMoved) {
       camPos.copy(viewOf('overview').pos)
       toPos.copy(camPos)
       camera.position.copy(camPos)
@@ -918,6 +968,10 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camPos.lerpVectors(fromPos, toPos, e)
       camPos.y += Math.sin(e * Math.PI) * 0.8
       camLook.lerpVectors(fromLook, toLook, e)
+      if (flyT >= 1) {
+        camera.position.copy(camPos)
+        land()
+      }
     }
     const k = 1 - Math.pow(0.05, dt)
     if (flyT < 1) {
@@ -992,6 +1046,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     scene,
     ready,
     focus,
+    stand,
     setNight(n) {
       night = n
       applyNight()
