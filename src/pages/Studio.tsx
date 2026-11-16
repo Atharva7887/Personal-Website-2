@@ -128,6 +128,8 @@ export function Studio() {
   const [seen, setSeen] = useState<Set<string>>(new Set())
   const [credits, setCredits] = useState(false)
   const [dir, setDir] = useState<1 | -1>(1) // which way the visitor last moved through the tour
+  const [progress, setProgress] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   const main = useRef<HTMLElement>(null)
 
   const open = (id: Stop['id']) => {
@@ -157,15 +159,25 @@ export function Studio() {
               setTouring(false)
               openRef.current(id)
             },
+            onProgress: (p) => !cancelled && setProgress((old) => Math.max(old, p)),
           },
           { reduced, night: puneIsNight() },
         )
+        const finish = () => {
+          if (cancelled) return
+          setProgress(1)
+          setLoaded(true)
+        }
+        room.current.ready.then(finish, finish)
       } catch {
         setFailed(true)
       }
     })
+    // Never keep anyone waiting forever: after 25 s, let them in with whatever has arrived.
+    const giveUp = window.setTimeout(() => setLoaded(true), 25000)
     return () => {
       cancelled = true
+      window.clearTimeout(giveUp)
       room.current?.dispose()
       room.current = null
     }
@@ -195,7 +207,7 @@ export function Studio() {
   const wheel = useRef({ acc: 0, lockedUntil: 0 })
   const onWheelRef = useRef<(e: WheelEvent) => void>(() => {})
   onWheelRef.current = (e: WheelEvent) => {
-    if (e.ctrlKey || credits || failed) return
+    if (e.ctrlKey || credits || failed || !loaded) return
     const w = wheel.current
     const now = performance.now()
     if (now < w.lockedUntil) {
@@ -444,6 +456,8 @@ export function Studio() {
         </div>
       )}
 
+      <StudioLoader progress={progress} done={loaded || failed} dark={dark} />
+
       {/* Before the visit starts: a small scroll cue. */}
       {!entered && !failed && (
         <div aria-hidden="true" className={'pointer-events-none absolute bottom-8 right-6 hidden flex-col items-center gap-2 text-xs sm:flex sm:right-10 ' + (dark ? 'text-fog/70' : 'text-slate')}>
@@ -454,5 +468,70 @@ export function Studio() {
         </div>
       )}
     </main>
+  )
+}
+
+// What the loader says while the models arrive, one line at a time.
+const LOADING_LINES = [
+  'Carrying the sofa up the stairs',
+  'Plugging in the PC',
+  'Watering the plants',
+  'Dusting the bookshelves',
+  'Putting a coin in the arcade',
+  'Opening the blinds',
+]
+
+/** Covers the room until its 3D models have downloaded, then lifts away. */
+function StudioLoader({ progress, done, dark }: { progress: number; done: boolean; dark: boolean }) {
+  const [line, setLine] = useState(0)
+  const [gone, setGone] = useState(false)
+  useEffect(() => {
+    if (done) return
+    const t = window.setInterval(() => setLine((l) => (l + 1) % LOADING_LINES.length), 1600)
+    return () => window.clearInterval(t)
+  }, [done])
+  useEffect(() => {
+    if (!done) return
+    const t = window.setTimeout(() => setGone(true), 900)
+    return () => window.clearTimeout(t)
+  }, [done])
+  if (gone) return null
+  const pct = Math.round(progress * 100)
+  return (
+    <div
+      className={
+        'studio-loader absolute inset-0 z-20 flex flex-col justify-end p-5 transition-[opacity,transform] duration-700 ease-[cubic-bezier(.7,0,.2,1)] motion-reduce:transition-none sm:p-10 ' +
+        (dark ? 'bg-[#0b0d1a] text-fog ' : 'bg-fog text-ink ') +
+        (done ? 'pointer-events-none -translate-y-full opacity-0' : '')
+      }
+    >
+      {/* Without JavaScript the room never loads, so the loader should not stay up. */}
+      <noscript>
+        <style>{'.studio-loader{display:none}'}</style>
+      </noscript>
+      <p className={'text-sm ' + (dark ? 'text-fog/70' : 'text-slate')}>Studio</p>
+      <div className="mt-2 flex items-end justify-between gap-6">
+        <p className="font-display text-[clamp(4rem,16vw,12rem)] font-semibold leading-[0.8] tracking-[-0.05em] tabular-nums">
+          {pct}
+          <span className={dark ? 'text-voltsoft' : 'text-volt'}>%</span>
+        </p>
+        <p key={line} aria-hidden="true" className={'mb-2 hidden text-right text-lg sm:block ' + (dark ? 'text-fog/80' : 'text-slate')} style={{ animation: 'fade-up .5s cubic-bezier(.2,.8,.2,1) both' }}>
+          {LOADING_LINES[line]}…
+        </p>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Loading the room"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        className={'mt-6 h-[3px] w-full overflow-hidden rounded-full ' + (dark ? 'bg-white/15' : 'bg-ink/10')}
+      >
+        <div className="h-full origin-left bg-volt transition-transform duration-500 ease-out" style={{ transform: `scaleX(${progress})` }} />
+      </div>
+      <p aria-hidden="true" className={'mt-3 text-sm sm:hidden ' + (dark ? 'text-fog/70' : 'text-slate')}>
+        {LOADING_LINES[line]}…
+      </p>
+    </div>
   )
 }

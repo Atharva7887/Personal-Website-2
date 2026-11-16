@@ -14,6 +14,8 @@ export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery
 export interface RoomEvents {
   onHover: (id: StopId | null) => void
   onSelect: (id: StopId) => void
+  /** Model download progress, 0 to 1. */
+  onProgress?: (p: number) => void
 }
 
 export interface RoomHandle {
@@ -493,8 +495,36 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // The Draco decoder ships with three; it is fetched only when a model needs it.
   const draco = new DRACOLoader().setDecoderPath({ js: dracoJs, wasm: dracoWasm })
   const loader = new GLTFLoader().setDRACOLoader(draco)
+  // Load progress across every model, weighted by size (a file without a known size counts as ~0.5 MB).
+  const progress = new Map<string, { loaded: number; total: number; done: boolean }>()
+  const report = () => {
+    let got = 0
+    let all = 0
+    for (const f of progress.values()) {
+      const w = f.total || 5e5
+      all += w
+      // Downloading is 80% of a file's share; decoding and setting it up is the rest.
+      got += f.done ? w : f.total ? 0.8 * Math.min(f.loaded, f.total) : 0
+    }
+    // Hold short of 100% until everything is in the scene (the page sets 100% when ready resolves).
+    ev.onProgress?.(all ? Math.min(0.97, got / all) : 0)
+  }
   const load = async (file: string) => {
-    const root = (await loader.loadAsync(MODELS + file)).scene
+    const entry = { loaded: 0, total: 0, done: false }
+    progress.set(file, entry)
+    let root: THREE.Group
+    try {
+      root = (
+        await loader.loadAsync(MODELS + file, (e) => {
+          entry.loaded = e.loaded
+          if (e.lengthComputable) entry.total = e.total
+          report()
+        })
+      ).scene
+    } finally {
+      entry.done = true
+      report()
+    }
     if (disposed) {
       disposeTree(root)
       throw new Error('room disposed')
