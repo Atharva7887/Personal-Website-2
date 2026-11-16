@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Room preview</title>
+  </head>
+  <!-- Dev only: one fixed view of the Studio room, for checking it by eye or by screenshot.
+       Run the dev server and open /scripts/room-preview/index.html?stop=garden&night=1
+       stop: any stop id (default overview). night=1 for the night lighting. -->
+  <body style="margin: 0; background: #e4e7ec">
+    <canvas id="c" style="width: 100vw; height: 100vh; display: block"></canvas>
+    <script type="module" src="./preview.ts"></script>
+  </body>
+</html>

@@ -41,6 +41,13 @@ const STOPS: Stop[] = [
     link: { label: 'Read the case study', href: '/work/interaction-analysis-app/' },
   },
   {
+    id: 'gallery',
+    label: 'Gallery',
+    title: 'On the wall',
+    body: 'Six projects, framed: apps, machine-learning pipelines and websites. Each one has its own case study.',
+    link: { label: 'See all my work', href: '/#work' },
+  },
+  {
     id: 'phone',
     label: 'Phone',
     title: 'Unhaze',
@@ -69,12 +76,38 @@ const STOPS: Stop[] = [
     link: { label: 'Play Find the minimum', href: '/play/' },
   },
   {
+    id: 'door',
+    label: 'Door',
+    title: 'The way out',
+    body: 'The door opens on to a small garden. Step outside for a minute.',
+  },
+  {
+    id: 'garden',
+    label: 'Garden',
+    title: 'The garden',
+    body: 'Somewhere to step away from the screen. It follows Pune time too, so the lights come on out here when it’s night.',
+  },
+  {
     id: 'mug',
     label: 'Coffee',
     title: 'Let’s grab a coffee',
     body: 'Have a project in mind, a role, or just want to talk about models and apps? I’d like to hear about it.',
     link: { label: 'Email me', href: `mailto:${EMAIL}` },
   },
+]
+
+// The 3D models in the room that other people made, shared under CC BY 4.0 and simplified for the web.
+const CREDITS = [
+  { what: 'Desk, keyboard and chair', title: 'Modern Gaming PC & Workspace Setup', by: 'Syzoth', href: 'https://sketchfab.com/3d-models/modern-gaming-pc-workspace-setup-b47af9368f6f4df4ad085e64de92e49e' },
+  { what: 'Monitor', title: 'Ultrawide Monitor', by: 'dylanheyes', href: 'https://sketchfab.com/3d-models/ultrawide-monitor-f84d24b6df3648d884fd9be9c8007dd4' },
+  { what: 'Monstera', title: 'Monstera Deliciosa Potted Mid-Century plant', by: 'Giora', href: 'https://sketchfab.com/3d-models/monstera-deliciosa-potted-mid-century-plant-1ab9bf841df04c07b1819be596327629' },
+  { what: 'Grass', title: 'Simple grass chunks', by: '3dhdscan', href: 'https://sketchfab.com/3d-models/simple-grass-chunks-eb4f6dc9d4e3455ea3435385faf58b60' },
+  { what: 'Laptop', title: 'HP Omen Laptop', by: 'Fadi', href: 'https://sketchfab.com/3d-models/hp-omen-laptop-cb33442e53e6404a9439f320401da1d9' },
+  { what: 'Controller stand', title: 'Bomb Monkey', by: 'nosimaj4', href: 'https://sketchfab.com/3d-models/bomb-monkey-37830c004a084435acf1b5e4e4c5f15c' },
+  { what: 'Console', title: 'PS5', by: 'rtql8d', href: 'https://sketchfab.com/3d-models/ps5-d788de3735964151a3e24fd59c0f1956' },
+  { what: 'Sofa', title: 'Sofa', by: 'AngelNebesniy', href: 'https://sketchfab.com/3d-models/sofa-c7a0c35f4f0b49f8b4fea273f9014001' },
+  { what: 'Arcade cabinet (repainted)', title: 'Game-ready arcade machine', by: 'Snji', href: 'https://sketchfab.com/3d-models/game-ready-arcade-machine-25fb590707034cff8b555953d66a0f7b' },
+  { what: 'Mug', title: 'Coffee Mug (School Project)', by: 'Ole Gunnar Isager', href: 'https://sketchfab.com/3d-models/coffee-mug-school-project-5f5ccee1514c440887c072fae8e0d699' },
 ]
 
 function puneIsNight() {
@@ -93,6 +126,9 @@ export function Studio() {
   const [touring, setTouring] = useState(false)
   const [night, setNight] = useState(false)
   const [seen, setSeen] = useState<Set<string>>(new Set())
+  const [credits, setCredits] = useState(false)
+  const [dir, setDir] = useState<1 | -1>(1) // which way the visitor last moved through the tour
+  const main = useRef<HTMLElement>(null)
 
   const open = (id: Stop['id']) => {
     setActive(id)
@@ -149,17 +185,53 @@ export function Studio() {
     open(STOPS[0].id)
   }
   const step = (d: number) => {
+    setDir(d < 0 ? -1 : 1)
     const i = tourIndex + d
     if (i < 0 || i >= STOPS.length) return overview()
     open(STOPS[i].id)
   }
 
+  // Scrolling walks through the room: one stop per scroll gesture. Ctrl + wheel (and pinch) zooms instead.
+  const wheel = useRef({ acc: 0, lockedUntil: 0 })
+  const onWheelRef = useRef<(e: WheelEvent) => void>(() => {})
+  onWheelRef.current = (e: WheelEvent) => {
+    if (e.ctrlKey || credits || failed) return
+    const w = wheel.current
+    const now = performance.now()
+    if (now < w.lockedUntil) {
+      w.lockedUntil = now + 220 // a trackpad keeps sending small deltas: wait for the gesture to end
+      return
+    }
+    w.acc += e.deltaY
+    if (Math.abs(w.acc) < 50) return
+    const d = w.acc > 0 ? 1 : -1
+    w.acc = 0
+    w.lockedUntil = now + 650
+    if (!entered || !active) {
+      if (d > 0) startTour()
+      return
+    }
+    setTouring(true)
+    step(d)
+  }
+  useEffect(() => {
+    const el = main.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      onWheelRef.current(e)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   // Arrow keys move through the tour; Escape returns to the whole room.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCredits(false)
       if (!entered) return
-      if (e.key === 'ArrowRight') step(1)
-      if (e.key === 'ArrowLeft') step(-1)
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') step(1)
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') step(-1)
       if (e.key === 'Escape') overview()
     }
     window.addEventListener('keydown', onKey)
@@ -171,13 +243,23 @@ export function Studio() {
   const dark = night
 
   return (
-    <main id="main" className={'relative h-[100svh] overflow-hidden transition-colors duration-700 ' + (dark ? 'dark bg-[#0b0d1a] text-fog' : 'bg-fog text-ink')}>
+    <main ref={main} id="main" className={'relative h-[100svh] overflow-hidden transition-colors duration-700 ' + (dark ? 'dark bg-[#0b0d1a] text-fog' : 'bg-fog text-ink')}>
       <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full touch-manipulation" />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-7">
-        <a href="/" className="pointer-events-auto flex min-h-[44px] items-center font-display text-lg font-semibold">
-          AS<span className={dark ? 'text-voltsoft' : 'text-volt'}>.</span>
-        </a>
+        <div className="pointer-events-auto flex flex-col items-start">
+          <a href="/" className="flex min-h-[44px] items-center font-display text-lg font-semibold">
+            AS<span className={dark ? 'text-voltsoft' : 'text-volt'}>.</span>
+          </a>
+          <button
+            onClick={() => setCredits((c) => !c)}
+            aria-expanded={credits}
+            aria-controls="studio-credits"
+            className={'flex min-h-[44px] items-center text-sm underline underline-offset-4 ' + (dark ? 'text-fog/80 hover:text-fog' : 'text-slate hover:text-ink')}
+          >
+            Credits
+          </button>
+        </div>
         <div className="pointer-events-auto flex items-center gap-2">
           <button
             onClick={() => setNight((n) => !n)}
@@ -194,6 +276,48 @@ export function Studio() {
         </div>
       </header>
 
+      {credits && (
+        <section
+          id="studio-credits"
+          aria-label="3D model credits"
+          className="absolute left-4 top-28 z-10 max-h-[calc(100svh-8rem)] w-[min(22rem,calc(100vw-2rem))] animate-[pop_.4s_cubic-bezier(.2,.8,.2,1.3)] overflow-auto rounded-3xl bg-white p-6 text-sm text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:left-7"
+        >
+          <h2 className="font-display text-xl font-semibold">3D model credits</h2>
+          <p className="mt-2 text-slate">
+            I built the room and the garden around models made by other people. These ones are shared under{' '}
+            <a href="https://creativecommons.org/licenses/by/4.0/" className="link" target="_blank" rel="noreferrer">
+              CC BY 4.0
+            </a>{' '}
+            and simplified to load quickly.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {CREDITS.map((c) => (
+              <li key={c.href}>
+                <span className="text-slate">{c.what}: </span>
+                <a href={c.href} className="link" target="_blank" rel="noreferrer">
+                  {c.title}
+                </a>{' '}
+                by {c.by}
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => setCredits(false)} className="btn btn-ghost mt-4 min-h-[44px] px-4 text-sm">
+            Close
+          </button>
+        </section>
+      )}
+
+      {/* A soft wash behind the headline, so it stays readable over the garden. */}
+      {!entered && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `linear-gradient(to top right, ${dark ? '#0b0d1a' : '#e4e7ec'} 8%, ${dark ? 'rgba(11,13,26,.7)' : 'rgba(228,231,236,.7)'} 26%, transparent 48%)`,
+          }}
+        />
+      )}
+
       {!entered && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5 sm:p-10">
           <div className="pointer-events-auto max-w-3xl">
@@ -204,7 +328,7 @@ export function Studio() {
               This is my room.
             </h1>
             <p className={'mt-5 max-w-lg text-lg ' + (dark ? 'text-fog/85' : 'text-slate')}>
-              Everything in here is something I’ve made or care about. Click around, or let me show you.
+              Everything in here is something I’ve made or care about. Drag to turn the room, scroll to walk through it, or let me show you.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <button onClick={startTour} className={'btn px-7 text-lg ' + (dark ? 'bg-white text-ink hover:bg-voltsoft' : 'btn-ink')}>
@@ -240,7 +364,8 @@ export function Studio() {
         <section
           key={stop.id}
           aria-live="polite"
-          className="absolute bottom-4 left-4 right-4 animate-[pop_.5s_cubic-bezier(.2,.8,.2,1.3)] rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7"
+          style={{ animation: `${dir > 0 ? 'card-from-below' : 'card-from-above'} .6s cubic-bezier(.2,.8,.2,1) both` }}
+          className="studio-card absolute bottom-4 left-4 right-4 rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7"
         >
           {touring && (
             <p className="text-sm tabular-nums text-slate">
@@ -302,9 +427,31 @@ export function Studio() {
       )}
 
       {entered && !stop && (
-        <p className={'pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-center text-sm ' + (dark ? 'text-mist' : 'text-slate')}>
-          Click anything in the room
+        <p className={'pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 text-center text-sm ' + (dark ? 'text-mist' : 'text-slate')}>
+          <span className="[@media(hover:none)]:hidden">Drag to turn the room · scroll to walk through it · click anything</span>
+          <span className="hidden [@media(hover:none)]:inline">Drag to turn the room · tap anything</span>
         </p>
+      )}
+
+      {/* Tour progress: a rail that fills as you scroll through the room. */}
+      {entered && (
+        <div aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden h-48 w-[3px] -translate-y-1/2 overflow-hidden rounded-full sm:block md:left-5">
+          <div className={'absolute inset-0 ' + (dark ? 'bg-white/15' : 'bg-ink/10')} />
+          <div
+            className="absolute inset-x-0 top-0 origin-top bg-volt transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)]"
+            style={{ height: '100%', transform: `scaleY(${active ? (tourIndex + 1) / STOPS.length : 0})` }}
+          />
+        </div>
+      )}
+
+      {/* Before the visit starts: a small scroll cue. */}
+      {!entered && !failed && (
+        <div aria-hidden="true" className={'pointer-events-none absolute bottom-8 right-6 hidden flex-col items-center gap-2 text-xs sm:flex sm:right-10 ' + (dark ? 'text-fog/70' : 'text-slate')}>
+          <span className="flex h-9 w-6 justify-center rounded-full border-2 border-current pt-1.5">
+            <span className="scroll-dot h-2 w-1 rounded-full bg-current" style={{ animation: 'scroll-dot 1.6s ease-in-out infinite' }} />
+          </span>
+          Scroll
+        </div>
       )}
     </main>
   )
