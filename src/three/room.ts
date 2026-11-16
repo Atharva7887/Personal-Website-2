@@ -8,6 +8,7 @@ import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
+import { buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
 export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery' | 'shelf' | 'plant' | 'arcade' | 'window' | 'door' | 'garden' | 'mug'
@@ -748,14 +749,29 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   fill.position.set(6, 6, 8)
   scene.add(fill)
 
+  // The sky, with the sun where the light comes from. By day it is high over the garden;
+  // in the evening it sits low in the west, so it shows through the window.
+  const sky = buildSky(45)
+  scene.add(sky.mesh)
+  const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
+  const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
+  const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
+
   let night = opts.night
+  // Night in Pune is shown as a sunset: a low orange sun, a dusky sky, and every lamp on.
   const applyNight = () => {
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
-    scene.environmentIntensity = night ? 0.07 : 0.5
-    hemi.intensity = night ? 0.14 : 0.6
-    sun.intensity = night ? 0.3 : 2.6
-    sun.color.set(night ? '#8c99ff' : '#fff1d6')
-    fill.intensity = night ? 0.12 : 0.5
+    const dir = night ? SUN_SUNSET : SUN_DAY
+    sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
+    sky.set(night ? SKY_SUNSET : SKY_DAY, dir, night ? 1 : 0)
+    scene.environmentIntensity = night ? 0.16 : 0.5
+    hemi.intensity = night ? 0.32 : 0.6
+    hemi.color.set(night ? '#ffb38a' : '#ffffff')
+    hemi.groundColor.set(night ? '#2e2440' : '#b89b7c')
+    sun.intensity = night ? 1.9 : 2.6
+    sun.color.set(night ? '#ff9457' : '#fff1d6')
+    fill.intensity = night ? 0.22 : 0.5
+    fill.color.set(night ? '#7a6ad8' : '#c9d1ff')
     lampLight.intensity = night ? 14 : 0
     shadeMat.emissiveIntensity = night ? 1.6 : 0
     gpuLight.intensity = night ? 10 : 5
@@ -983,6 +999,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camPos.copy(camera.position)
       camLook.copy(controls.target)
     }
+    sky.follow(camera)
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
@@ -1068,6 +1085,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       kit.dispose()
       envTarget.dispose()
       envScene.dispose()
+      sky.dispose()
       renderer.dispose()
     },
   }

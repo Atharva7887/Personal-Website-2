@@ -18,7 +18,7 @@ const STOPS: Stop[] = [
     id: 'window',
     label: 'Window',
     title: 'Pune, India',
-    body: 'This is where I work from. The window follows the real time in Pune, so if it’s dark outside, it’s late here too.',
+    body: 'This is where I work from. The window follows the real time in Pune, so when the sky turns orange, it’s evening here too.',
   },
   {
     id: 'desk',
@@ -320,7 +320,7 @@ export function Studio() {
               setNight((n) => !n)
             }}
             aria-pressed={night}
-            className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'border border-white/30 hover:border-white' : 'btn-ghost bg-white/60')}
+            className={'btn min-h-[44px] px-4 text-sm ' + (dark ? 'border border-white/30 bg-[#0b0d1a]/60 backdrop-blur hover:border-white' : 'btn-ghost bg-white/60')}
           >
             {night ? 'Lights on' : 'Lights off'}
           </button>
@@ -331,7 +331,7 @@ export function Studio() {
           )}
           </div>
           {clock && (
-            <p className={'mt-1.5 rounded-full px-2.5 py-1 text-xs tabular-nums backdrop-blur ' + (dark ? 'bg-white/10 text-fog/80' : 'bg-white/70 text-slate')}>
+            <p className={'mt-1.5 rounded-full px-2.5 py-1 text-xs tabular-nums backdrop-blur ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/80' : 'bg-white/70 text-slate')}>
               {clock} in Pune{manualLight ? '' : night ? ' · night' : ' · day'}
             </p>
           )}
@@ -342,7 +342,7 @@ export function Studio() {
       {entered && (
         <nav
           aria-label="Places"
-          className={'absolute left-1/2 top-[7.5rem] z-10 flex -translate-x-1/2 gap-1 rounded-full p-1 text-sm font-medium shadow-sm backdrop-blur sm:top-7 ' + (dark ? 'bg-white/10' : 'bg-white/70')}
+          className={'absolute left-1/2 top-[7.5rem] z-10 flex -translate-x-1/2 gap-1 rounded-full p-1 text-sm font-medium shadow-sm backdrop-blur sm:top-7 ' + (dark ? 'bg-[#0b0d1a]/60' : 'bg-white/70')}
         >
           {[...PLACES.map((p) => ({ id: p.id as PlaceId | null, label: p.label })), { id: null as PlaceId | null, label: 'From above' }].map((p) => {
             const here = p.id === null ? !place && !active : place === p.id
@@ -509,7 +509,7 @@ export function Studio() {
         <nav aria-label="Things in the room" className="absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto sm:right-7 md:block">
           {PLACES.map((pl) => (
             <div key={pl.id} className="mb-3">
-              <p className={'mb-1.5 px-1 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'text-fog/60' : 'text-slate')}>{pl.label}</p>
+              <p className={'mb-1.5 w-max rounded-full px-2 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/70' : 'text-slate')}>{pl.label}</p>
           <ul className="space-y-1.5">
             {STOPS.filter((s) => placeOf(s.id) === pl.id).map((s) => (
               <li key={s.id}>
@@ -526,7 +526,7 @@ export function Studio() {
                         ? 'bg-white text-ink'
                         : 'bg-ink text-fog'
                       : dark
-                        ? 'bg-white/10 hover:bg-white/20'
+                        ? 'bg-[#0b0d1a]/60 backdrop-blur hover:bg-[#0b0d1a]/80'
                         : 'bg-white/70 hover:bg-white')
                   }
                 >
