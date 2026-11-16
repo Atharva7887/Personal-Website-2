@@ -167,6 +167,7 @@ export function Contact() {
           <span className="flex gap-6">
             <a href="/studio/" className="link inline-flex min-h-[44px] items-center">Studio</a>
             <a href="/play/" className="link inline-flex min-h-[44px] items-center">Play: find the minimum</a>
+            <a href="/sitemap/" className="link inline-flex min-h-[44px] items-center">Sitemap</a>
           </span>
           <a href="/#top" className="link inline-flex min-h-[44px] items-center">Back to top</a>
         </div>

@@ -3,10 +3,12 @@ import { Hero } from './components/Hero'
 import { Dock } from './components/Dock'
 import { Marquee } from './components/Marquee'
 import { Work } from './components/Work'
+import { OffTheClock } from './components/OffTheClock'
 import { About, Contact, Services } from './components/Sections'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
 import { Studio } from './pages/Studio'
+import { SitemapPage } from './pages/SitemapPage'
 import { projects } from './data/projects'
 import { normalise } from './routes'
 
@@ -46,6 +48,15 @@ function useSmoothScroll() {
 export default function App({ path }: { path: string }) {
   useSmoothScroll()
   const route = normalise(path)
+
+  if (route === '/sitemap/') {
+    return (
+      <>
+        <SkipLink />
+        <SitemapPage />
+      </>
+    )
+  }
 
   if (route === '/studio/') {
     return (
@@ -90,6 +101,7 @@ export default function App({ path }: { path: string }) {
         <Work />
         <Services />
         <About />
+        <OffTheClock />
         <Contact />
       </main>
     </>
