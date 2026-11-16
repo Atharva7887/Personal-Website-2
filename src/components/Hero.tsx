@@ -55,7 +55,7 @@ export function Hero() {
         </nav>
       </header>
 
-      <div className="page relative z-10 mt-auto pb-10 sm:pb-14">
+      <div className="page relative z-10 my-auto py-10 sm:py-14">
         <p className="after-intro mb-6 flex items-center gap-2 text-slate" style={{ ['--i' as string]: 0 }}>
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-volt opacity-60" />
