@@ -226,3 +226,22 @@ html.js .reveal:not(.is-in) {
     transform: none;
   }
 }
+
+/* Studio: the tour card slides in from the side the visitor scrolled towards. */
+@keyframes card-from-below {
+  from { opacity: 0; transform: translateY(40px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-from-above {
+  from { opacity: 0; transform: translateY(-40px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scroll-dot {
+  0% { transform: translateY(0); opacity: 1; }
+  70% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-card { animation: none !important; }
+  .scroll-dot { animation: none !important; }
+}

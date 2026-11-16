@@ -1,0 +1,36 @@
+3D models used in the Studio room (/studio). Each was simplified for the web by scripts/room-assets/prepare.py.
+
+studio-setup.glb  "Modern Gaming PC & Workspace Setup" by Syzoth, CC BY 4.0 (desk, keyboard, mouse, chair)
+                  https://sketchfab.com/3d-models/modern-gaming-pc-workspace-setup-b47af9368f6f4df4ad085e64de92e49e
+monitor.glb       "Ultrawide Monitor" by dylanheyes, CC BY 4.0
+                  https://sketchfab.com/3d-models/ultrawide-monitor-f84d24b6df3648d884fd9be9c8007dd4
+laptop.glb        "HP Omen Laptop" by Fadi, CC BY 4.0
+                  https://sketchfab.com/3d-models/hp-omen-laptop-cb33442e53e6404a9439f320401da1d9
+gaming.glb        "Bomb Monkey" by nosimaj4, CC BY 4.0
+                  https://sketchfab.com/3d-models/bomb-monkey-37830c004a084435acf1b5e4e4c5f15c
+                  "PS5" by rtql8d, CC BY 4.0
+                  https://sketchfab.com/3d-models/ps5-d788de3735964151a3e24fd59c0f1956
+plants.glb        "Monstera Deliciosa Potted Mid-Century plant" by Giora, CC BY 4.0
+                  https://sketchfab.com/3d-models/monstera-deliciosa-potted-mid-century-plant-1ab9bf841df04c07b1819be596327629
+garden.glb        "Simple grass chunks" by 3dhdscan, CC BY 4.0 (grass)
+                  https://sketchfab.com/3d-models/simple-grass-chunks-eb4f6dc9d4e3455ea3435385faf58b60
+furniture.glb     "Sofa" by AngelNebesniy, CC BY 4.0
+                  https://sketchfab.com/3d-models/sofa-c7a0c35f4f0b49f8b4fea273f9014001
+                  "Game-ready arcade machine" by Snji, CC BY 4.0. Its side art and screen were repainted with
+                  original artwork (scripts/room-assets/repaint-arcade.mjs).
+                  https://sketchfab.com/3d-models/game-ready-arcade-machine-25fb590707034cff8b555953d66a0f7b
+                  "Coffee Mug (School Project)" by Ole Gunnar Isager, CC BY 4.0
+                  https://sketchfab.com/3d-models/coffee-mug-school-project-5f5ccee1514c440887c072fae8e0d699
+
+SOURCE AND LICENCE NOT RECORDED in the downloaded files. Find the original pages and add them here and to the
+Credits panel in src/pages/Studio.tsx (or replace the models) before publishing:
+gaming.glb        Side table and controller: exports/refreences/Controller and stand/Untitled.glb
+plants.glb        ZZ plant: New ref/zz-plant-in-ceramic-pot-crafted-by-jerovdl (1).zip
+                  Pothos: New ref/free-pothos-potted-plant-money-plant.zip
+greenhouse.glb    New ref/greenhouse-in-the-garden-draft.zip
+garden.glb        Trees: New ref/Grass and grass land/low-poly-tree-scene-free.zip
+vine.glb          Places and elements/vine-with-branch-3d-model-free.zip
+furniture.glb     PC: New ref/more/CUSTOM+GAMING+PC(1).blend (its product-photo and logo textures were removed)
+                  Bookshelf: New ref/more/metal+shelf+OBJ.zip (recoloured)
+
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
