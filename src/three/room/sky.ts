@@ -11,10 +11,33 @@ export interface SkyLook {
   below: string // the page colour
   sunSize: number // angular radius of the disc, radians
   glowSize: number
+  cloudLit: string // cloud tops, facing the sun
+  cloudShade: string // cloud undersides
+  cover: number // 0 clear .. 1 overcast
 }
 
-export const SKY_DAY: SkyLook = { zenith: '#a9bddd', horizon: '#eef1f5', glow: '#fff6e0', below: '#e4e7ec', sunSize: 0.035, glowSize: 0.35 }
-export const SKY_SUNSET: SkyLook = { zenith: '#161a3d', horizon: '#ff8f5a', glow: '#ffd08a', below: '#0b0d1a', sunSize: 0.06, glowSize: 0.7 }
+export const SKY_DAY: SkyLook = {
+  zenith: '#5f8fd6',
+  horizon: '#dde7f2',
+  glow: '#fff6e0',
+  below: '#e4e7ec',
+  sunSize: 0.045,
+  glowSize: 0.45,
+  cloudLit: '#ffffff',
+  cloudShade: '#a9b6cb',
+  cover: 0.5,
+}
+export const SKY_SUNSET: SkyLook = {
+  zenith: '#161a3d',
+  horizon: '#ff8f5a',
+  glow: '#ffd08a',
+  below: '#0b0d1a',
+  sunSize: 0.06,
+  glowSize: 0.7,
+  cloudLit: '#ffb48a',
+  cloudShade: '#3b2c4f',
+  cover: 0.55,
+}
 
 const vert = /* glsl */ `
 varying vec3 vDir;
@@ -34,7 +57,22 @@ uniform vec3 sunDir;
 uniform float sunSize;
 uniform float glowSize;
 uniform float warm; // 0 day, 1 sunset: how far the horizon colour climbs
+uniform vec3 cloudLit;
+uniform vec3 cloudShade;
+uniform float cover;
+uniform float time;
 varying vec3 vDir;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
+  return v;
+}
 void main() {
   vec3 d = normalize(vDir);
   float h = d.y;
@@ -48,6 +86,17 @@ void main() {
   col = mix(col, glow, smoothstep(glowSize, 0.0, a) * 0.75);
   // The disc, with a soft edge.
   col = mix(col, vec3(1.0, 0.97, 0.9), smoothstep(sunSize, sunSize * 0.8, a));
+  // Clouds: a layer overhead, seen in perspective, drifting slowly. Lit on the side towards the sun.
+  if (h > 0.0) {
+    vec2 uv = d.xz / (h + 0.18) * 1.6 + vec2(time * 0.012, time * 0.004);
+    float n = fbm(uv);
+    float c = smoothstep(1.0 - cover, 1.0 - cover + 0.18, n) * smoothstep(0.0, 0.1, h);
+    float lit = clamp(0.5 + 0.5 * dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(sunDir.x, 0.0, sunDir.z))), 0.0, 1.0);
+    float thick = smoothstep(0.45, 0.95, n);
+    vec3 cc = mix(cloudLit, cloudShade, thick * (1.0 - 0.6 * lit));
+    cc = mix(cc, glow, smoothstep(glowSize * 1.4, 0.0, a) * 0.6); // rims catch the sun's glow
+    col = mix(col, cc, c * 0.92);
+  }
   // Below the horizon: fade quickly to the page colour.
   col = mix(below, col, smoothstep(-0.12, 0.02, h));
   gl_FragColor = vec4(col, 1.0);
@@ -64,6 +113,10 @@ export function buildSky(radius: number) {
     sunSize: { value: 0.04 },
     glowSize: { value: 0.4 },
     warm: { value: 0 },
+    cloudLit: { value: new THREE.Color() },
+    cloudShade: { value: new THREE.Color() },
+    cover: { value: 0.4 },
+    time: { value: 0 },
   }
   const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: vert, fragmentShader: frag, side: THREE.BackSide, depthWrite: false, fog: false })
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 24), mat)
@@ -81,6 +134,12 @@ export function buildSky(radius: number) {
       uniforms.glowSize.value = look.glowSize
       uniforms.sunDir.value.copy(sunDir).normalize()
       uniforms.warm.value = warm
+      uniforms.cloudLit.value.set(look.cloudLit)
+      uniforms.cloudShade.value.set(look.cloudShade)
+      uniforms.cover.value = look.cover
+    },
+    tick(t: number) {
+      uniforms.time.value = t
     },
     /** Keeps the dome centred on the camera so it never gets closer or clipped. */
     follow(camera: THREE.Camera) {

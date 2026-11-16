@@ -23,6 +23,10 @@ export interface RoomEvents {
   onProgress?: (p: number) => void
   /** While walking: which place you are in now. */
   onPlace?: (p: PlaceId) => void
+  /** While walking: the seat you could sit on ("the sofa"), and the one you are sitting on. */
+  onSeat?: (near: string | null, seated: string | null) => void
+  /** While walking: the mouse was captured (look by moving it) or let go. */
+  onLock?: (locked: boolean) => void
 }
 
 export interface RoomHandle {
@@ -33,6 +37,8 @@ export interface RoomHandle {
   walk: (place: PlaceId, resume?: boolean) => void
   /** The on-screen stick for touch screens: strafe and forward, each -1..1. */
   setStick: (x: number, y: number) => void
+  /** Sit on the seat you're next to, or stand up. */
+  toggleSit: () => void
   setNight: (night: boolean) => void
   /** The scene graph, for exporting the room (scripts/export-room). */
   scene: THREE.Scene
@@ -151,6 +157,33 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   box(8, 0.2, 0.05, white, 0, 0.1, -3.975)
   box(0.05, 0.2, DOOR.z0 + 4 - 0.08, white, -3.975, 0.1, (DOOR.z0 - 4 - 0.08) / 2)
   box(0.05, 0.2, 4 - DOOR.z1 - 0.08, white, -3.975, 0.1, (4 + DOOR.z1 + 0.08) / 2)
+
+  // The two near walls (front and right). Seen from outside, the room is an open box; once you are
+  // inside (walking, standing, close up), these close it in. The right one has a window on to the view.
+  const nearWalls = new THREE.Group()
+  nearWalls.name = 'Near walls'
+  nearWalls.visible = false
+  scene.add(nearWalls)
+  const nearPiece = (w: number, h: number, d: number, mats: THREE.Material[], x: number, y: number, z: number) => {
+    const piece = tbox(w, h, d, mats, x, y, z, 2, nearWalls)
+    piece.castShadow = false
+    occluders.push(piece)
+  }
+  // Box faces are +x, -x, +y, -y, +z, -z: brick outside, paint inside.
+  nearPiece(8.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], 0, 2.5, 4.1)
+  const RW = { z0: -1.5, z1: 1.1, y0: 1.5, y1: 3.6 }
+  const rightMats = [brick, wallMat, wallMat, wallMat, wallMat, wallMat]
+  nearPiece(0.2, 5, RW.z0 + 4.2, rightMats, 4.1, 2.5, (RW.z0 - 4.2) / 2)
+  nearPiece(0.2, 5, 4 - RW.z1, rightMats, 4.1, 2.5, (RW.z1 + 4) / 2)
+  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, 4.1, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, 4.1, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
+  // Window frame and sill, and skirting along both walls.
+  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, 4.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, 4.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
+  box(0.06, RW.y1 - RW.y0, 0.05, white, 4.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, 3.88, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(8, 0.2, 0.05, white, 0, 0.1, 3.975, nearWalls).castShadow = false
+  box(0.05, 0.2, 8, white, 3.975, 0.1, 0, nearWalls).castShadow = false
 
   // Rug
   const rug = mesh(new THREE.BoxGeometry(3.6, 0.03, 2.4), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.5, 0.015, -0.7)
@@ -772,6 +805,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(ground.mesh)
   const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
   const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
+  // By day the light comes from high over the garden; the disc you see sits lower in the west, where
+  // eye-level views (through the window, across the garden) can find it.
+  const SUN_DAY_DISC = new THREE.Vector3(-0.8, 0.34, -0.5).normalize()
   const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
 
   let night = opts.night
@@ -780,7 +816,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
     const dir = night ? SUN_SUNSET : SUN_DAY
     sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
-    sky.set(night ? SKY_SUNSET : SKY_DAY, dir, night ? 1 : 0)
+    sky.set(night ? SKY_SUNSET : SKY_DAY, night ? dir : SUN_DAY_DISC, night ? 1 : 0)
     ground.set(night ? '#2b2a3a' : '#9fb489', (night ? SKY_SUNSET : SKY_DAY).horizon)
     scene.environmentIntensity = night ? 0.16 : 0.5
     hemi.intensity = night ? 0.32 : 0.6
@@ -912,7 +948,22 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   canvas.addEventListener('wheel', onZoomWheel, { capture: true })
 
   // First person: the walker drives the camera; the orbit controls stand aside.
-  const walker = createWalker(camera, canvas, opts.reduced)
+  const walker = createWalker(camera, canvas, opts.reduced, {
+    onSeat: (n, s) => ev.onSeat?.(n?.label ?? null, s?.label ?? null),
+    onLock: (l) => ev.onLock?.(l),
+  })
+  // Somewhere to sit: the sofa, facing into the room, and the desk chair, facing the monitor.
+  walker.setSeats(() => {
+    const cx = chair.position.x
+    const cz = chair.position.z
+    const mx = DESK_X
+    const mz = DESK_Z
+    const toDesk = Math.hypot(mx - cx, mz - cz)
+    return [
+      { id: 'sofa', label: 'the sofa', x: 1.6, z: 2.5, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
+      { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
+    ]
+  })
   let pendingWalk: Pose | null = null
   let lastWalk: Pose | null = null
   let walkPlace: PlaceId | null = null
@@ -988,7 +1039,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   let hovered: StopId | null = null
   const pick = (e: PointerEvent): StopId | null => {
     const r = canvas.getBoundingClientRect()
-    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+    // With the mouse captured (walking), you aim with the dot in the middle of the screen.
+    if (document.pointerLockElement === canvas) ndc.set(0, 0)
+    else ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     ray.setFromCamera(ndc, camera)
     // Nearest thing wins: a wall or the floor in front means nothing is picked.
     // (Walls hidden while looking from outside don't count.)
@@ -1008,6 +1061,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   let downAt = { x: 0, y: 0 }
   const onDown = (e: PointerEvent) => (downAt = { x: e.clientX, y: e.clientY })
   const onUp = (e: PointerEvent) => {
+    if (walker.takeSwallowedClick()) return // that click captured the mouse
     if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return
     const id = pick(e)
     if (yard.poke(ray)) return // the dog hops
@@ -1067,11 +1121,16 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camLook.copy(controls.target)
     }
     sky.follow(camera)
+    sky.tick(opts.reduced ? 0 : t)
     ground.mesh.visible = camera.position.y < 5.5 // eye level only; from above the room floats on the page
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
     yard.showNeighbour(camera.position)
+    {
+      const c = camera.position
+      nearWalls.visible = c.x > -4 && c.x < 3.95 && c.z > -4 && c.z < 3.95 && c.y < 5.2
+    }
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
 
     // Door eases towards open or ajar.
@@ -1136,6 +1195,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     stand,
     walk,
     setStick: (x, y) => walker.setStick(x, y),
+    toggleSit: () => walker.toggleSit(),
     setNight(n) {
       night = n
       applyNight()

@@ -144,6 +144,10 @@ export function Studio() {
   const [loaded, setLoaded] = useState(false)
   const [walking, setWalking] = useState(false) // first person
   const resumeWalk = useRef(false) // a card opened mid-walk: closing it carries on walking
+  const [seatNear, setSeatNear] = useState<string | null>(null) // "the sofa", when you could sit
+  const [seatedOn, setSeatedOn] = useState<string | null>(null)
+  const [mouseLocked, setMouseLocked] = useState(false) // walking with the mouse captured
+  const unlockedAt = useRef(0) // Esc that lets the mouse go shouldn't also stop the walk
   const main = useRef<HTMLElement>(null)
 
   const open = (id: Stop['id']) => {
@@ -194,6 +198,16 @@ export function Studio() {
             },
             onProgress: (p) => !cancelled && setProgress((old) => Math.max(old, p)),
             onPlace: (p) => !cancelled && setPlace(p),
+            onSeat: (n, s) => {
+              if (cancelled) return
+              setSeatNear(n)
+              setSeatedOn(s)
+            },
+            onLock: (l) => {
+              if (cancelled) return
+              setMouseLocked(l)
+              if (!l) unlockedAt.current = performance.now()
+            },
           },
           { reduced, night: puneIsNight() },
         )
@@ -306,7 +320,7 @@ export function Studio() {
       if (!entered) return
       if (walking) {
         // The arrow keys walk; Escape stops and stands you where you are.
-        if (e.key === 'Escape') standIn(place ?? 'room')
+        if (e.key === 'Escape' && performance.now() - unlockedAt.current > 300) standIn(place ?? 'room')
         return
       }
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') step(1)
@@ -555,11 +569,11 @@ export function Studio() {
         </section>
       )}
 
-      {entered && (
+      {entered && !walking && (
         <nav aria-label="Things in the room" className="absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto sm:right-7 md:block">
           {PLACES.map((pl) => (
             <div key={pl.id} className="mb-3">
-              <p className={'mb-1.5 w-max rounded-full px-2 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/70' : 'text-slate')}>{pl.label}</p>
+              <p className={'mb-1.5 w-max rounded-full px-2 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/70' : 'bg-white/85 text-slate')}>{pl.label}</p>
           <ul className="space-y-1.5">
             {STOPS.filter((s) => placeOf(s.id) === pl.id).map((s) => (
               <li key={s.id}>
@@ -577,7 +591,7 @@ export function Studio() {
                         : 'bg-ink text-fog'
                       : dark
                         ? 'bg-[#0b0d1a]/60 backdrop-blur hover:bg-[#0b0d1a]/80'
-                        : 'bg-white/70 hover:bg-white')
+                        : 'bg-white/90 shadow-sm backdrop-blur hover:bg-white')
                   }
                 >
                   <span className={'h-1.5 w-1.5 rounded-full ' + (seen.has(s.id) ? 'bg-volt' : 'bg-current opacity-30')} />
@@ -595,7 +609,11 @@ export function Studio() {
         <p className={'pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-3 py-1 text-center text-sm backdrop-blur ' + (dark ? 'bg-black/30 text-mist' : 'bg-white/60 text-slate')}>
           {walking ? (
             <>
-              <span className="[@media(hover:none)]:hidden">W A S D or the arrow keys to walk · drag to look · Shift to hurry · Esc to stop</span>
+              <span className="[@media(hover:none)]:hidden">
+                {mouseLocked
+                  ? 'Move the mouse to look · W A S D to walk · Shift to hurry · aim and click things · Esc lets go of the mouse'
+                  : 'Click the room to look around with the mouse · W A S D or the arrow keys to walk · Esc to stop walking'}
+              </span>
               <span className="hidden [@media(hover:none)]:inline">Use the stick to walk · drag to look · tap anything</span>
             </>
           ) : (
@@ -620,6 +638,18 @@ export function Studio() {
         </div>
       )}
 
+      {walking && !stop && mouseLocked && (
+        <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_1.5px_rgba(12,15,20,.55)]" />
+      )}
+      {walking && !stop && (seatNear || seatedOn) && (
+        <div className="absolute bottom-16 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/80 py-1.5 pl-4 pr-1.5 text-sm text-fog backdrop-blur">
+          <span className="[@media(hover:none)]:hidden">{seatedOn ? 'Press E or take a step to stand up' : `Press E to sit on ${seatNear}`}</span>
+          <span className="hidden [@media(hover:none)]:inline">{seatedOn ? `Sitting on ${seatedOn}` : `Sit on ${seatNear}?`}</span>
+          <button onClick={() => room.current?.toggleSit()} className="min-h-[36px] rounded-full bg-white px-4 font-medium text-ink">
+            {seatedOn ? 'Stand up' : 'Sit'}
+          </button>
+        </div>
+      )}
       {walking && !stop && <WalkStick onMove={(x, y) => room.current?.setStick(x, y)} dark={dark} />}
 
       <StudioLoader progress={progress} done={loaded || failed} dark={dark} />
