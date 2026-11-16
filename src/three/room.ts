@@ -7,6 +7,11 @@ import dracoJs from 'three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js?ur
 import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url'
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
+import { PLACES, type PlaceId } from './places'
+import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
+import { buildBackyard } from './room/backyard'
+import { GARDEN, inGarden } from './room/layout'
+import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
 export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery' | 'shelf' | 'plant' | 'arcade' | 'window' | 'door' | 'garden' | 'mug'
@@ -14,10 +19,26 @@ export type StopId = 'overview' | 'desk' | 'gpu' | 'phone' | 'poster' | 'gallery
 export interface RoomEvents {
   onHover: (id: StopId | null) => void
   onSelect: (id: StopId) => void
+  /** Model download progress, 0 to 1. */
+  onProgress?: (p: number) => void
+  /** While walking: which place you are in now. */
+  onPlace?: (p: PlaceId) => void
+  /** While walking: the seat you could sit on ("the sofa"), and the one you are sitting on. */
+  onSeat?: (near: string | null, seated: string | null) => void
+  /** While walking: the mouse was captured (look by moving it) or let go. */
+  onLock?: (locked: boolean) => void
 }
 
 export interface RoomHandle {
   focus: (id: StopId) => void
+  /** Stand somewhere at eye height and look around (drag turns your head). */
+  stand: (place: PlaceId) => void
+  /** Walk around in first person, starting where you stand in a place (or where you last stopped walking). */
+  walk: (place: PlaceId, resume?: boolean) => void
+  /** The on-screen stick for touch screens: strafe and forward, each -1..1. */
+  setStick: (x: number, y: number) => void
+  /** Sit on the seat you're next to, or stand up. */
+  toggleSit: () => void
   setNight: (night: boolean) => void
   /** The scene graph, for exporting the room (scripts/export-room). */
   scene: THREE.Scene
@@ -65,6 +86,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
+  // Dev only: lets the headless checks read where the camera is.
+  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene })
   const kit = makeKit(scene)
   const { track, mat, mesh, box, tbox, cyl } = kit
 
@@ -134,6 +157,33 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   box(8, 0.2, 0.05, white, 0, 0.1, -3.975)
   box(0.05, 0.2, DOOR.z0 + 4 - 0.08, white, -3.975, 0.1, (DOOR.z0 - 4 - 0.08) / 2)
   box(0.05, 0.2, 4 - DOOR.z1 - 0.08, white, -3.975, 0.1, (4 + DOOR.z1 + 0.08) / 2)
+
+  // The two near walls (front and right). Seen from outside, the room is an open box; once you are
+  // inside (walking, standing, close up), these close it in. The right one has a window on to the view.
+  const nearWalls = new THREE.Group()
+  nearWalls.name = 'Near walls'
+  nearWalls.visible = false
+  scene.add(nearWalls)
+  const nearPiece = (w: number, h: number, d: number, mats: THREE.Material[], x: number, y: number, z: number) => {
+    const piece = tbox(w, h, d, mats, x, y, z, 2, nearWalls)
+    piece.castShadow = false
+    occluders.push(piece)
+  }
+  // Box faces are +x, -x, +y, -y, +z, -z: brick outside, paint inside.
+  nearPiece(8.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], 0, 2.5, 4.1)
+  const RW = { z0: -1.5, z1: 1.1, y0: 1.5, y1: 3.6 }
+  const rightMats = [brick, wallMat, wallMat, wallMat, wallMat, wallMat]
+  nearPiece(0.2, 5, RW.z0 + 4.2, rightMats, 4.1, 2.5, (RW.z0 - 4.2) / 2)
+  nearPiece(0.2, 5, 4 - RW.z1, rightMats, 4.1, 2.5, (RW.z1 + 4) / 2)
+  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, 4.1, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, 4.1, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
+  // Window frame and sill, and skirting along both walls.
+  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, 4.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, 4.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
+  box(0.06, RW.y1 - RW.y0, 0.05, white, 4.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, 3.88, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(8, 0.2, 0.05, white, 0, 0.1, 3.975, nearWalls).castShadow = false
+  box(0.05, 0.2, 8, white, 3.975, 0.1, 0, nearWalls).castShadow = false
 
   // Rug
   const rug = mesh(new THREE.BoxGeometry(3.6, 0.03, 2.4), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.5, 0.015, -0.7)
@@ -473,8 +523,12 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // ---------- Garden ----------
   const garden = group('garden')
   const outside = buildGarden(kit)
-  // The lawn near the door is the garden's click target.
-  pickBox(6.2, 0.1, 9, -7.4, 0.02, 1.6, garden)
+  const yardRoot = new THREE.Group()
+  yardRoot.name = 'Backyard'
+  scene.add(yardRoot)
+  const yard = buildBackyard(kit, yardRoot)
+  // The lawn is the garden's click target.
+  pickBox(8.6, 0.1, 9, -8.6, 0.02, 1.6, garden)
 
   // ---------- Models ----------
   const loaded: THREE.Object3D[] = []
@@ -493,8 +547,36 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // The Draco decoder ships with three; it is fetched only when a model needs it.
   const draco = new DRACOLoader().setDecoderPath({ js: dracoJs, wasm: dracoWasm })
   const loader = new GLTFLoader().setDRACOLoader(draco)
+  // Load progress across every model, weighted by size (a file without a known size counts as ~0.5 MB).
+  const progress = new Map<string, { loaded: number; total: number; done: boolean }>()
+  const report = () => {
+    let got = 0
+    let all = 0
+    for (const f of progress.values()) {
+      const w = f.total || 5e5
+      all += w
+      // Downloading is 80% of a file's share; decoding and setting it up is the rest.
+      got += f.done ? w : f.total ? 0.8 * Math.min(f.loaded, f.total) : 0
+    }
+    // Hold short of 100% until everything is in the scene (the page sets 100% when ready resolves).
+    ev.onProgress?.(all ? Math.min(0.97, got / all) : 0)
+  }
   const load = async (file: string) => {
-    const root = (await loader.loadAsync(MODELS + file)).scene
+    const entry = { loaded: 0, total: 0, done: false }
+    progress.set(file, entry)
+    let root: THREE.Group
+    try {
+      root = (
+        await loader.loadAsync(MODELS + file, (e) => {
+          entry.loaded = e.loaded
+          if (e.lengthComputable) entry.total = e.total
+          report()
+        })
+      ).scene
+    } finally {
+      entry.done = true
+      report()
+    }
     if (disposed) {
       disposeTree(root)
       throw new Error('room disposed')
@@ -715,14 +797,35 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   fill.position.set(6, 6, 8)
   scene.add(fill)
 
+  // The sky, with the sun where the light comes from. By day it is high over the garden;
+  // in the evening it sits low in the west, so it shows through the window.
+  const sky = buildSky(45)
+  scene.add(sky.mesh)
+  const ground = buildGround(42)
+  scene.add(ground.mesh)
+  const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
+  const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
+  // By day the light comes from high over the garden; the disc you see sits lower in the west, where
+  // eye-level views (through the window, across the garden) can find it.
+  const SUN_DAY_DISC = new THREE.Vector3(-0.8, 0.34, -0.5).normalize()
+  const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
+
   let night = opts.night
+  // Night in Pune is shown as a sunset: a low orange sun, a dusky sky, and every lamp on.
   const applyNight = () => {
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
-    scene.environmentIntensity = night ? 0.07 : 0.5
-    hemi.intensity = night ? 0.14 : 0.6
-    sun.intensity = night ? 0.3 : 2.6
-    sun.color.set(night ? '#8c99ff' : '#fff1d6')
-    fill.intensity = night ? 0.12 : 0.5
+    const dir = night ? SUN_SUNSET : SUN_DAY
+    sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
+    sky.set(night ? SKY_SUNSET : SKY_DAY, night ? dir : SUN_DAY_DISC, night ? 1 : 0)
+    ground.set(night ? '#2b2a3a' : '#9fb489', (night ? SKY_SUNSET : SKY_DAY).horizon)
+    scene.environmentIntensity = night ? 0.16 : 0.5
+    hemi.intensity = night ? 0.32 : 0.6
+    hemi.color.set(night ? '#ffb38a' : '#ffffff')
+    hemi.groundColor.set(night ? '#2e2440' : '#b89b7c')
+    sun.intensity = night ? 1.9 : 2.6
+    sun.color.set(night ? '#ff9457' : '#fff1d6')
+    fill.intensity = night ? 0.22 : 0.5
+    fill.color.set(night ? '#7a6ad8' : '#c9d1ff')
     lampLight.intensity = night ? 14 : 0
     shadeMat.emissiveIntensity = night ? 1.6 : 0
     gpuLight.intensity = night ? 10 : 5
@@ -731,6 +834,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     greenhouseGlow.intensity = night ? 9 : 0
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
+    yard.setNight(night)
   }
   applyNight()
 
@@ -776,38 +880,138 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     if (flyT < 1) {
       // Grabbing mid-flight stops the flight where it is.
       flyT = 1
+      if (standing) {
+        // Standing: stop where the flight is and turn on the spot from there.
+        const dir = camLook.clone().sub(camera.position).normalize()
+        camLook.copy(camera.position).addScaledVector(dir, EYE)
+      }
       controls.target.copy(camLook)
     }
   }
   controls.addEventListener('start', onControlsStart)
   // Runs before the controls see the wheel: only ctrl + wheel (a trackpad pinch) zooms; touch pinch always can.
-  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey)
-  const onZoomDown = () => (controls.enableZoom = true)
-  canvas.addEventListener('pointerdown', onZoomDown, { capture: true })
-  canvas.addEventListener('wheel', onZoomWheel, { capture: true })
+  // Standing somewhere, there is nothing to zoom: you look around instead.
+  let standing: PlaceId | null = null
+  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey && !standing)
+  const onZoomDown = () => (controls.enableZoom = !standing)
 
-  const focus = (id: StopId) => {
+  // Orbit: the camera circles what it looks at. Standing: the camera stays put and turns on the spot,
+  // done by orbiting a point a few centimetres in front of the eye. A drag moves the view the way
+  // the pointer goes, like turning your head.
+  const EYE = 0.05
+  const setOrbit = (min: number, max: number) => {
+    controls.rotateSpeed = 0.7
+    controls.minDistance = min
+    controls.maxDistance = max
+    controls.minPolarAngle = 0.15
+    controls.maxPolarAngle = 1.48 // never below the floor
+  }
+  const setStand = () => {
+    controls.rotateSpeed = -0.35
+    controls.minDistance = controls.maxDistance = EYE
+    controls.minPolarAngle = 0.55 // look down at the floor…
+    controls.maxPolarAngle = 2.35 // …or up at the ceiling
+    controls.enableZoom = false
+  }
+  // When a flight ends while standing, pull the orbit point in to just in front of the eye.
+  const land = () => {
+    if (pendingWalk) {
+      const p = pendingWalk
+      pendingWalk = null
+      controls.enabled = false
+      walker.start(p)
+      return
+    }
+    if (!standing) return
+    const dir = toLook.clone().sub(toPos).normalize()
+    camLook.copy(toPos).addScaledVector(dir, EYE)
+    controls.target.copy(camLook)
+  }
+  const fly = (pos: THREE.Vector3, look: THREE.Vector3) => {
     fromPos = camPos.clone()
     fromLook = camLook.clone()
-    current = id
-    const view = viewOf(id)
-    toPos = view.pos
-    toLook = view.look
+    toPos = pos
+    toLook = look
     flyT = opts.reduced ? 1 : 0
     userMoved = false
     controls.autoRotate = false
-    // Close up, the camera stays near the thing; the whole room can be seen from further out.
-    controls.minDistance = id === 'overview' ? 4 : 0.8
-    controls.maxDistance = id === 'overview' ? 34 : Math.max(4, toPos.distanceTo(toLook) * 2.2)
-    // The door swings wide when you head for the garden.
-    doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
     if (opts.reduced) {
       camPos.copy(toPos)
       camLook.copy(toLook)
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       doorAngle = doorTarget
+      land()
     }
+  }
+  canvas.addEventListener('pointerdown', onZoomDown, { capture: true })
+  canvas.addEventListener('wheel', onZoomWheel, { capture: true })
+
+  // First person: the walker drives the camera; the orbit controls stand aside.
+  const walker = createWalker(camera, canvas, opts.reduced, {
+    onSeat: (n, s) => ev.onSeat?.(n?.label ?? null, s?.label ?? null),
+    onLock: (l) => ev.onLock?.(l),
+  })
+  // Somewhere to sit: the sofa, facing into the room, and the desk chair, facing the monitor.
+  walker.setSeats(() => {
+    const cx = chair.position.x
+    const cz = chair.position.z
+    const mx = DESK_X
+    const mz = DESK_Z
+    const toDesk = Math.hypot(mx - cx, mz - cz)
+    return [
+      { id: 'sofa', label: 'the sofa', x: 1.6, z: 2.5, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
+      { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
+    ]
+  })
+  let pendingWalk: Pose | null = null
+  let lastWalk: Pose | null = null
+  let walkPlace: PlaceId | null = null
+  const stopWalking = () => {
+    if (walker.active) lastWalk = { ...walker.pose }
+    walker.stop()
+    pendingWalk = null
+    controls.enabled = true
+  }
+  const walk = (id: PlaceId, resume = false) => {
+    const place = PLACES.find((p) => p.id === id)
+    if (!place) return
+    const from = resume && lastWalk ? lastWalk : null
+    const pos = from ? new THREE.Vector3(from.x, 2.4, from.z) : new THREE.Vector3(...place.stand.pos)
+    const look = from
+      ? pos.clone().add(new THREE.Vector3(Math.sin(from.yaw) * Math.cos(from.pitch), Math.sin(from.pitch), Math.cos(from.yaw) * Math.cos(from.pitch)))
+      : new THREE.Vector3(...place.stand.look)
+    const dir = look.clone().sub(pos).normalize()
+    standing = null
+    current = id === 'garden' ? 'garden' : 'overview'
+    walkPlace = inGarden(pos.x) ? 'garden' : 'room'
+    doorTarget = DOOR_OPEN // the door stays open so you can walk through
+    setStand()
+    pendingWalk = { x: pos.x, z: pos.z, yaw: Math.atan2(dir.x, dir.z), pitch: Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)) }
+    fly(pos, look)
+  }
+
+  const focus = (id: StopId) => {
+    stopWalking()
+    current = id
+    standing = null
+    const view = viewOf(id)
+    // Close up, the camera stays near the thing; the whole room can be seen from further out.
+    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 34 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
+    // The door swings wide when you head for the garden.
+    doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
+    fly(view.pos, view.look)
+  }
+
+  const stand = (id: PlaceId) => {
+    const place = PLACES.find((p) => p.id === id)
+    if (!place) return
+    stopWalking()
+    current = id === 'garden' ? 'garden' : 'overview'
+    standing = id
+    setStand()
+    doorTarget = id === 'garden' ? DOOR_OPEN : DOOR_AJAR
+    fly(new THREE.Vector3(...place.stand.pos), new THREE.Vector3(...place.stand.look))
   }
 
   const resize = () => {
@@ -819,7 +1023,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     camera.fov = w / h < 1 ? 58 : 38
     camera.updateProjectionMatrix()
     // Keep the overview framed when the window changes shape.
-    if (current === 'overview' && flyT >= 1 && !userMoved) {
+    if (current === 'overview' && !standing && !walker.active && !pendingWalk && flyT >= 1 && !userMoved) {
       camPos.copy(viewOf('overview').pos)
       toPos.copy(camPos)
       camera.position.copy(camPos)
@@ -835,7 +1039,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   let hovered: StopId | null = null
   const pick = (e: PointerEvent): StopId | null => {
     const r = canvas.getBoundingClientRect()
-    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+    // With the mouse captured (walking), you aim with the dot in the middle of the screen.
+    if (document.pointerLockElement === canvas) ndc.set(0, 0)
+    else ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     ray.setFromCamera(ndc, camera)
     // Nearest thing wins: a wall or the floor in front means nothing is picked.
     // (Walls hidden while looking from outside don't count.)
@@ -855,8 +1061,10 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   let downAt = { x: 0, y: 0 }
   const onDown = (e: PointerEvent) => (downAt = { x: e.clientX, y: e.clientY })
   const onUp = (e: PointerEvent) => {
+    if (walker.takeSwallowedClick()) return // that click captured the mouse
     if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return
     const id = pick(e)
+    if (yard.poke(ray)) return // the dog hops
     if (id) {
       pop.set(id, 1)
       ev.onSelect(id)
@@ -888,21 +1096,42 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camPos.lerpVectors(fromPos, toPos, e)
       camPos.y += Math.sin(e * Math.PI) * 0.8
       camLook.lerpVectors(fromLook, toLook, e)
+      if (flyT >= 1) {
+        camera.position.copy(camPos)
+        land()
+      }
     }
     const k = 1 - Math.pow(0.05, dt)
     if (flyT < 1) {
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       camera.lookAt(camLook)
+    } else if (walker.update(dt)) {
+      camPos.copy(camera.position)
+      camera.getWorldDirection(camLook).multiplyScalar(3).add(camera.position)
+      const here: PlaceId = inGarden(camera.position.x) ? 'garden' : 'room'
+      if (here !== walkPlace) {
+        walkPlace = here
+        current = here === 'garden' ? 'garden' : 'overview'
+        ev.onPlace?.(here)
+      }
     } else {
       controls.update(dt)
       camPos.copy(camera.position)
       camLook.copy(controls.target)
     }
+    sky.follow(camera)
+    sky.tick(opts.reduced ? 0 : t)
+    ground.mesh.visible = camera.position.y < 5.5 // eye level only; from above the room floats on the page
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
-    sideWall.forEach((w) => (w.visible = camera.position.x > -10 || current === 'garden'))
+    yard.showNeighbour(camera.position)
+    {
+      const c = camera.position
+      nearWalls.visible = c.x > -4 && c.x < 3.95 && c.z > -4 && c.z < 3.95 && c.y < 5.2
+    }
+    sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
 
     // Door eases towards open or ajar.
     doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
@@ -942,6 +1171,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         v.rotation.z = Math.cos(t * 0.7 + i) * 0.025
       })
       outside.update(t)
+      yard.update(t, dt, camera.position)
     }
 
     renderer.render(scene, camera)
@@ -962,6 +1192,10 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     scene,
     ready,
     focus,
+    stand,
+    walk,
+    setStick: (x, y) => walker.setStick(x, y),
+    toggleSit: () => walker.toggleSit(),
     setNight(n) {
       night = n
       applyNight()
@@ -983,6 +1217,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       kit.dispose()
       envTarget.dispose()
       envScene.dispose()
+      sky.dispose()
+      ground.dispose()
+      walker.dispose()
       renderer.dispose()
     },
   }

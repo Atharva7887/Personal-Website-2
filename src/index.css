@@ -245,3 +245,10 @@ html.js .reveal:not(.is-in) {
   .studio-card { animation: none !important; }
   .scroll-dot { animation: none !important; }
 }
+
+/* Studio at night (Pune time): set by an inline script before the first paint, until React takes over. */
+html[data-studio-night] main#main,
+html[data-studio-night] .studio-loader {
+  background-color: #0b0d1a;
+  color: #e4e7ec;
+}

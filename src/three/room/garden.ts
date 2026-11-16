@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Kit } from './kit'
 import { grassTexture, woodTexture } from './textures'
+import { DECK, GARDEN, TREES } from './layout'
 
 export interface VineSpot {
   pos: [number, number, number]
@@ -8,11 +9,11 @@ export interface VineSpot {
   rotY: number
 }
 
-// The garden sits outside the left wall (x < -4.2), reached through the door.
-const X0 = -11.2 // far edge
-const X1 = -4.2 // the house wall
-const Z0 = -6.2
-const Z1 = 6.8
+// The garden sits outside the left wall (x < -4.2), reached through the door. Its size lives in layout.ts.
+const X0 = GARDEN.x0 // far edge
+const X1 = GARDEN.x1 // the house wall
+const Z0 = GARDEN.z0
+const Z1 = GARDEN.z1
 
 const LEAF_GREENS = ['#3f7d3a', '#4f9144', '#2f6a35', '#5fa04a', '#3a7440']
 const HEDGE_GREENS = ['#2f6a35', '#35753a', '#2a5f30', '#3f7d3a']
@@ -47,7 +48,7 @@ export function buildGarden(k: Kit) {
     tuft.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     tuft.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
   }
-  const TUFTS = 9000
+  const TUFTS = 12000
   const blades = new THREE.InstancedMesh(tuft, mat('#ffffff', { roughness: 1, side: THREE.DoubleSide }), TUFTS)
   blades.name = 'Grass'
   blades.receiveShadow = true
@@ -58,6 +59,10 @@ export function buildGarden(k: Kit) {
   for (let i = 0; i < TUFTS; i++) {
     const x = X0 + 0.9 + rand() * (X1 - X0 - 1.0)
     const z = Z0 + 0.9 + rand() * (Z1 - Z0 - 1.1)
+    if (x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) {
+      blades.setMatrixAt(i, m4.makeScale(0, 0, 0)) // under the deck: none
+      continue
+    }
     const s = 0.6 + rand() * 0.9
     q.setFromAxisAngle(UP, rand() * Math.PI)
     m4.compose(new THREE.Vector3(x, -0.03, z), q, new THREE.Vector3(s, s * (0.7 + rand() * 0.8), s))
@@ -146,8 +151,7 @@ export function buildGarden(k: Kit) {
     }
   }
   // The back of the garden is left clear for the greenhouse model (placed by room.ts).
-  tree(-9.7, 0.9, 5.6, 1.1) // its crown shows over the wall
-  tree(-5.2, -5.0, 4.2, 0.9)
+  for (const [x, z, h, spread] of TREES) tree(x, z, h, spread)
 
   // ---------- Hedge along the far side and the back end ----------
   const hedgeCore = mat('#234a28', { roughness: 1 })
@@ -197,12 +201,17 @@ export function buildGarden(k: Kit) {
   // ---------- Stepping stones from the door ----------
   const stone = mat('#a8a39a', { roughness: 0.95 })
   const stoneGeo = track(new THREE.CylinderGeometry(0.42, 0.46, 0.06, 9))
+  // From the deck's step, round the big tree, to the shed.
   const path: [number, number][] = [
-    [-4.85, 2.8],
-    [-5.75, 2.85],
-    [-6.6, 3.1],
-    [-7.35, 3.55],
-    [-8.0, 4.1],
+    [-7.95, 2.7],
+    [-8.75, 2.4],
+    [-9.6, 2.45],
+    [-10.45, 2.05],
+    [-11.1, 1.3],
+    [-11.5, 0.35],
+    [-11.75, -0.65],
+    [-11.85, -1.7],
+    [-11.9, -2.7],
   ]
   path.forEach(([x, z], i) => {
     const s = new THREE.Mesh(stoneGeo, stone)
@@ -218,8 +227,9 @@ export function buildGarden(k: Kit) {
   const benchWood = mat('#ffffff', { map: benchTex, roughness: 0.7 })
   const bench = new THREE.Group()
   bench.name = 'Bench'
-  bench.position.set(-9.0, 0, 3.4)
-  bench.rotation.y = -0.5
+  // On the deck, facing out over the lawn.
+  bench.position.set(-6.3, DECK.y - 0.03, 4.45)
+  bench.rotation.y = Math.PI
   garden.add(bench)
   for (const dz of [-0.17, 0, 0.17]) tbox(1.7, 0.05, 0.15, benchWood, 0, 0.62, dz, 1.2, bench)
   for (const dy of [0.95, 1.15]) {
@@ -251,8 +261,8 @@ export function buildGarden(k: Kit) {
   // ---------- Pots by the door ----------
   const terracotta = mat('#b8623f', { roughness: 0.9 })
   for (const z of [1.72, 3.9]) {
-    cyl(0.3, 0.22, 0.5, terracotta, -4.72, 0.25, z, garden, 16)
-    bush(-4.72, 0.95, z, 0.4, 0.5, 0.4, 260, 0.13)
+    cyl(0.3, 0.22, 0.5, terracotta, -4.72, 0.25 + DECK.y - 0.03, z, garden, 16)
+    bush(-4.72, 0.95 + DECK.y - 0.03, z, 0.4, 0.5, 0.4, 260, 0.13)
   }
 
   // ---------- Pergola over the door, with string lights ----------
@@ -300,7 +310,7 @@ export function buildGarden(k: Kit) {
   const FLIES = 26
   const flyGeo = track(new THREE.BufferGeometry())
   const flyPos = new Float32Array(FLIES * 3)
-  const flyBase = Array.from({ length: FLIES }, () => [X0 + 1.4 + rand() * 5.2, 0.5 + rand() * 1.9, Z0 + 1.6 + rand() * 11, rand() * 6.28])
+  const flyBase = Array.from({ length: FLIES }, () => [X0 + 1.4 + rand() * (X1 - X0 - 2.4), 0.5 + rand() * 1.9, Z0 + 1.6 + rand() * 11, rand() * 6.28])
   flyBase.forEach(([x, y, z], i) => flyPos.set([x, y, z], i * 3))
   flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos, 3))
   const flyMat = track(new THREE.PointsMaterial({ color: '#f6ff9a', size: 0.07, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }))
