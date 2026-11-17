@@ -11,7 +11,7 @@ import { PLACES, type PlaceId } from './places'
 import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
 import { dedupeMaterials, mergeStatic } from './room/merge'
-import { GARDEN, inGarden } from './room/layout'
+import { GARDEN, ROOM, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
@@ -58,7 +58,7 @@ const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, numb
   gallery: { pos: [-1.6, 3.4, 1.7], look: [-1.75, 3.45, -4] },
   shelf: { pos: [0.4, 2.5, 1.6], look: [-3.8, 1.9, 0.6] },
   plant: { pos: [-0.9, 1.9, -0.7], look: [-3.0, 1.0, -3.0] },
-  arcade: { pos: [3.1, 1.95, -1.1], look: [3.3, 1.35, -3.5] },
+  arcade: { pos: [4.4, 1.95, -1.1], look: [4.6, 1.35, -3.5] },
   window: { pos: [0.6, 2.6, 0.8], look: [-3.9, 2.6, -1.6] },
   door: { pos: [0.4, 2.1, 2.0], look: [-4.6, 1.4, 2.85] },
   garden: { pos: [-9.3, 2.7, 6.1], look: [-4.6, 1.5, 1.0] },
@@ -146,9 +146,14 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
 
   // Walls and floor stop a click from reaching what is behind them (the garden, mostly).
   const occluders: THREE.Object3D[] = []
-  const floor = tbox(8.2, 0.2, 8.2, [slab, slab, floorMat, slab, slab, slab], -0.1, -0.1, -0.1, 4)
+  // The room is 10 wide (x -4 to 6) and 9 deep (z -4 to 5); the left and back walls stay where they were.
+  const RCX = (ROOM.x0 + ROOM.x1) / 2
+  const RCZ = (ROOM.z0 + ROOM.z1) / 2
+  const RW_ = ROOM.x1 - ROOM.x0
+  const RD_ = ROOM.z1 - ROOM.z0
+  const floor = tbox(RW_ + 0.4, 0.2, RD_ + 0.4, [slab, slab, floorMat, slab, slab, slab], RCX, -0.1, RCZ, 4)
   floor.name = 'Floor'
-  const backWall = tbox(8.2, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, wallMat, wallMat], -0.1, 2.5, -4.1, 2)
+  const backWall = tbox(RW_ + 0.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, wallMat, wallMat], RCX, 2.5, ROOM.z0 - 0.1, 2)
   backWall.name = 'Back wall'
   occluders.push(floor, backWall)
   // The left wall is built in pieces around the window and the door. Inside is painted, outside is brick.
@@ -167,11 +172,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   wallPiece(WIN.z0, WIN.z1, WIN.y1, 5)
   wallPiece(WIN.z1, DOOR.z0, 0, 5)
   wallPiece(DOOR.z0, DOOR.z1, DOOR.y1, 5)
-  wallPiece(DOOR.z1, 4, 0, 5)
+  wallPiece(DOOR.z1, ROOM.z1, 0, 5)
   // Skirting
-  box(8, 0.2, 0.05, white, 0, 0.1, -3.975)
-  box(0.05, 0.2, DOOR.z0 + 4 - 0.08, white, -3.975, 0.1, (DOOR.z0 - 4 - 0.08) / 2)
-  box(0.05, 0.2, 4 - DOOR.z1 - 0.08, white, -3.975, 0.1, (4 + DOOR.z1 + 0.08) / 2)
+  box(RW_, 0.2, 0.05, white, RCX, 0.1, ROOM.z0 + 0.025)
+  box(0.05, 0.2, DOOR.z0 - ROOM.z0 - 0.08, white, ROOM.x0 + 0.025, 0.1, (DOOR.z0 + ROOM.z0 - 0.08) / 2)
+  box(0.05, 0.2, ROOM.z1 - DOOR.z1 - 0.08, white, ROOM.x0 + 0.025, 0.1, (ROOM.z1 + DOOR.z1 + 0.08) / 2)
 
   // The two near walls (front and right). Seen from outside, the room is an open box; once you are
   // inside (walking, standing, close up), these close it in. The right one has a window on to the view.
@@ -185,23 +190,25 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     occluders.push(piece)
   }
   // Box faces are +x, -x, +y, -y, +z, -z: brick outside, paint inside.
-  nearPiece(8.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], 0, 2.5, 4.1)
-  const RW = { z0: -1.5, z1: 1.1, y0: 1.5, y1: 3.6 }
+  nearPiece(RW_ + 0.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], RCX, 2.5, ROOM.z1 + 0.1)
+  // The window looks out from the reading corner, in the front half of the right wall.
+  const RW = { z0: 1.1, z1: 3.7, y0: 1.5, y1: 3.6 }
+  const RX = ROOM.x1 + 0.1 // the right wall's centre line
   const rightMats = [brick, wallMat, wallMat, wallMat, wallMat, wallMat]
-  nearPiece(0.2, 5, RW.z0 + 4.2, rightMats, 4.1, 2.5, (RW.z0 - 4.2) / 2)
-  nearPiece(0.2, 5, 4 - RW.z1, rightMats, 4.1, 2.5, (RW.z1 + 4) / 2)
-  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, 4.1, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
-  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, 4.1, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5, RW.z0 - ROOM.z0 + 0.2, rightMats, RX, 2.5, (RW.z0 + ROOM.z0 - 0.2) / 2)
+  nearPiece(0.2, 5, ROOM.z1 - RW.z1, rightMats, RX, 2.5, (RW.z1 + ROOM.z1) / 2)
+  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, RX, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, RX, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
   // Window frame and sill, and skirting along both walls.
-  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, 4.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, 4.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
-  box(0.06, RW.y1 - RW.y0, 0.05, white, 4.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, 3.88, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  box(8, 0.2, 0.05, white, 0, 0.1, 3.975, nearWalls).castShadow = false
-  box(0.05, 0.2, 8, white, 3.975, 0.1, 0, nearWalls).castShadow = false
+  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, RX - 0.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, RX - 0.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
+  box(0.06, RW.y1 - RW.y0, 0.05, white, RX - 0.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, RX - 0.22, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(RW_, 0.2, 0.05, white, RCX, 0.1, ROOM.z1 - 0.025, nearWalls).castShadow = false
+  box(0.05, 0.2, RD_, white, ROOM.x1 - 0.025, 0.1, RCZ, nearWalls).castShadow = false
 
   // Rug
-  const rug = mesh(new THREE.BoxGeometry(3.6, 0.03, 2.4), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.5, 0.015, -0.7)
+  const rug = mesh(new THREE.BoxGeometry(4.2, 0.03, 2.8), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.9, 0.015, -0.4)
   rug.name = 'Rug'
   rug.castShadow = false
 
@@ -482,7 +489,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   arcade.add(arcadeFallback)
   const cab = mat('#2f45ff', { roughness: 0.45 })
   const black = mat('#0c0f14', { roughness: 0.5 })
-  const AX = 3.3
+  const AX = 4.6 // out from the PC, so the back wall is not crowded into one corner
   const AZ = -3.45
   pickBox(1.1, 2.1, 0.9, AX, 1.05, AZ, arcade)
   box(0.9, 1.9, 0.8, cab, AX, 0.95, AZ, arcadeFallback)
@@ -516,7 +523,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(lampLight)
 
   // ---------- A place to sit: the sofa model, or a bean bag if it does not load ----------
-  const SOFA: [number, number, number] = [1.15, 0, 2.55]
+  const SOFA: [number, number, number] = [1.15, 0, 3.1]
   const seating = new THREE.Group()
   seating.name = 'Seating'
   scene.add(seating)
@@ -1021,7 +1028,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const mz = DESK_Z
     const toDesk = Math.hypot(mx - cx, mz - cz)
     return [
-      { id: 'sofa', label: 'the sofa', x: 1.6, z: 2.5, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
+      { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.05, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
     ]
   })
@@ -1280,7 +1287,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     yard.showNeighbour(camera.position)
     {
       const c = camera.position
-      nearWalls.visible = c.x > -4 && c.x < 3.95 && c.z > -4 && c.z < 3.95 && c.y < 5.2
+      nearWalls.visible = c.x > ROOM.x0 && c.x < ROOM.x1 - 0.05 && c.z > ROOM.z0 && c.z < ROOM.z1 - 0.05 && c.y < 5.2
     }
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
     // A wall stepping aside changes what the sun can reach, so the shadows are drawn again.

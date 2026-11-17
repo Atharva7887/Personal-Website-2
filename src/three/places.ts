@@ -21,7 +21,7 @@ export const PLACES: Place[] = [
     id: 'room',
     label: 'Room',
     cta: 'Stand in the room',
-    stand: { pos: [2.9, 2.4, 3.4], look: [-1.0, 1.7, -2.6] },
+    stand: { pos: [4.3, 2.4, 4.3], look: [-0.5, 1.7, -2.6] },
     stops: ['window', 'desk', 'gpu', 'poster', 'gallery', 'phone', 'plant', 'shelf', 'arcade', 'door', 'mug'],
   },
   {

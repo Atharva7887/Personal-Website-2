@@ -1,6 +1,8 @@
 // Where things are on the ground: the room, the door, the garden and what stands in them.
 // Shared by the garden (to build), the dog (to wander) and first-person walking (to not walk through things).
 
+/** The room's floor, inside the walls: 10 wide and 9 deep. The left and back walls are fixed; it grows towards +x and +z. */
+export const ROOM = { x0: -4, x1: 6, z0: -4, z1: 5 }
 /** The garden: outside the room's left wall (x < -4.2), reached through the door. */
 export const GARDEN = { x0: -13.6, x1: -4.2, z0: -6.2, z1: 6.8 }
 /** The timber deck outside the door; its top is DECK.y above the lawn. */
@@ -28,9 +30,9 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x0: -0.85, x1: 1.25, z0: -4, z1: -2.35 }, // desk
     { x0: 1.6, x1: 2.3, z0: -4, z1: -2.75 }, // GPU tower
     { x0: -2.5, x1: -0.95, z0: -4, z1: -3.4 }, // sideboard
-    { x0: 2.75, x1: 3.85, z0: -4, z1: -3.0 }, // arcade
+    { x0: 4.05, x1: 5.15, z0: -4, z1: -3.0 }, // arcade
     { x0: -4, x1: -3.35, z0: -0.45, z1: 2.05 }, // bookshelves
-    { x0: -0.5, x1: 2.85, z0: 1.85, z1: 3.35 }, // sofa
+    { x0: -0.5, x1: 2.85, z0: 2.4, z1: 3.9 }, // sofa
     // In the garden
     { x0: SHED.x - SHED.w / 2 - 0.1, x1: SHED.x + SHED.w / 2 + 0.1, z0: SHED.z - SHED.d / 2 - 0.1, z1: SHED.z + SHED.d / 2 + 0.1 },
     { x0: -5.05, x1: -4.2, z0: -3.05, z1: -0.35 }, // flower bed under the window
@@ -55,7 +57,7 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
 
 /** Places you can stand: the room's floor, the doorway and the garden's lawn. */
 export const WALKABLE: Rect[] = [
-  { x0: -3.7, x1: 3.75, z0: -3.65, z1: 3.75 }, // room
+  { x0: ROOM.x0 + 0.3, x1: ROOM.x1 - 0.25, z0: ROOM.z0 + 0.35, z1: ROOM.z1 - 0.25 }, // room
   { x0: -4.75, x1: -3.5, z0: 2.4, z1: 3.2 }, // doorway
   { x0: GARDEN.x0 + 1.05, x1: -4.55, z0: GARDEN.z0 + 1.05, z1: GARDEN.z1 - 0.55 }, // lawn
 ]
