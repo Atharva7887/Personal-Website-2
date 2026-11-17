@@ -10,8 +10,8 @@ export const READING = {
   cabinet: { x: 5.71, z: -0.95, len: 2.3, depth: 0.54 }, // the low record cabinet against the right wall, turntable on top
   rug: { x: 4.5, z: 2.55, r: 1.45 },
 }
-/** The garden: outside the room's left wall (x < -4.2), reached through the door. */
-export const GARDEN = { x0: -13.6, x1: -4.2, z0: -6.2, z1: 6.8 }
+/** The garden: outside the room's left wall (x < -4.2), reached through the door. It runs on to x = -18.2. */
+export const GARDEN = { x0: -18.2, x1: -4.2, z0: -6.2, z1: 6.8 }
 /** The timber deck outside the door; its top is DECK.y above the lawn. */
 export const DECK = { x0: -7.2, x1: -4.2, z0: 0.7, z1: 4.75, y: 0.2 }
 /** The garden shed, in the far back corner (its door faces the lawn, +z). */
@@ -22,10 +22,37 @@ export const GREENHOUSE = { x: -7.75, z: -3.2 }
 export const TREES: [number, number, number, number][] = [
   [-9.7, 0.9, 5.6, 1.1],
   [-5.2, -5.0, 4.2, 0.9],
-  [-12.6, 4.6, 4.8, 1.0],
+  [-12.6, 4.6, 4.8, 1.0], // one end of the hammock
+  [-17.0, 4.6, 4.6, 1.0], // the other
 ]
 /** The neighbour's house, beyond the back hedge. */
-export const NEIGHBOUR = { x: -10.2, z: -9.6, w: 6.4, d: 4.4 }
+export const NEIGHBOUR = { x: -11.4, z: -9.6, w: 6.4, d: 4.4 }
+
+/** The pond in the back corner of the far garden: an irregular outline, a x b around its centre. */
+export const POND = { x: -15.3, z: -2.4, a: 2.2, b: 1.6 }
+/** How far out the pond's shore is in direction theta, as a multiple of a and b (so it is not an ellipse). */
+export const pondShore = (theta: number) => 1 + 0.1 * Math.sin(2 * theta + 1) + 0.07 * Math.sin(3 * theta + 2) + 0.04 * Math.sin(5 * theta)
+/** Is the point in the pond (grown by `pad` room units)? */
+export function inPond(x: number, z: number, pad = 0) {
+  const dx = (x - POND.x) / POND.a
+  const dz = (z - POND.z) / POND.b
+  return Math.hypot(dx, dz) < pondShore(Math.atan2(dz, dx)) + pad / Math.min(POND.a, POND.b)
+}
+/** A hammock strung between the two trees at x -12.6 and -17.0: hook x for each end, hook height and z. */
+export const HAMMOCK = { xa: -12.88, xb: -16.72, z: 4.6, y: 2.0 }
+/** The fire pit in the far garden, with its seats: stumps and logs around it (angle round the fire, distance). */
+export const FIRE = {
+  x: -14.8,
+  z: 1.9,
+  seats: [
+    { angle: 0.35, r: 1.6, kind: 'stump' as const },
+    { angle: 1.95, r: 1.6, kind: 'stump' as const },
+    { angle: 3.6, r: 1.75, kind: 'log' as const },
+    { angle: 5.2, r: 1.75, kind: 'log' as const },
+  ],
+}
+/** The two stumps you can sit on, as spots on the ground (the first two seats). */
+export const fireSeatAt = (i: number) => ({ x: FIRE.x + Math.cos(FIRE.seats[i].angle) * FIRE.seats[i].r, z: FIRE.z + Math.sin(FIRE.seats[i].angle) * FIRE.seats[i].r })
 
 export type Rect = { x0: number; x1: number; z0: number; z1: number }
 export type Circle = { x: number; z: number; r: number }
@@ -46,6 +73,7 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x0: SHED.x - SHED.w / 2 - 0.1, x1: SHED.x + SHED.w / 2 + 0.1, z0: SHED.z - SHED.d / 2 - 0.1, z1: SHED.z + SHED.d / 2 + 0.1 },
     { x0: -5.05, x1: -4.2, z0: -3.05, z1: -0.35 }, // flower bed under the window
     { x0: -7.1, x1: -5.45, z0: 4.15, z1: 4.75 }, // bench on the deck
+    { x0: HAMMOCK.xb + 0.25, x1: HAMMOCK.xa - 0.25, z0: HAMMOCK.z - 0.6, z1: HAMMOCK.z + 0.6 }, // the hammock
   ],
   circles: [
     { x: 1.2, z: -2.0, r: 0.45 }, // desk chair
@@ -57,6 +85,11 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x: -3.38, z: 3.72, r: 0.35 }, // pothos
     { x: GREENHOUSE.x, z: GREENHOUSE.z, r: 2.25 },
     ...TREES.map(([x, z]) => ({ x, z, r: 0.35 })),
+    { x: POND.x - 1.1, z: POND.z, r: 1.7 }, // pond (three circles cover its shape)
+    { x: POND.x, z: POND.z, r: 1.95 },
+    { x: POND.x + 1.1, z: POND.z, r: 1.65 },
+    { x: FIRE.x, z: FIRE.z, r: 0.95 }, // fire pit
+    ...FIRE.seats.map((_, i) => ({ ...fireSeatAt(i), r: 0.32 })),
     { x: -6.5, z: 0.5, r: 0.2 }, // lamp post
     { x: -5.9, z: 1.8, r: 0.15 }, // pergola posts
     { x: -5.9, z: 3.8, r: 0.15 },

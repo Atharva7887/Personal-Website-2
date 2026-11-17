@@ -28,7 +28,7 @@ export const PLACES: Place[] = [
     id: 'garden',
     label: 'Garden',
     cta: 'Stand in the garden',
-    stand: { pos: [-6.4, 2.4, 5.4], look: [-8.2, 1.4, -2.6] },
+    stand: { pos: [-6.2, 2.4, 5.6], look: [-12.5, 1.2, 0.6] },
     stops: ['garden'],
   },
 ]

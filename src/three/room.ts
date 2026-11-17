@@ -12,7 +12,7 @@ import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
 import { buildCorner } from './room/corner'
 import { dedupeMaterials, mergeStatic } from './room/merge'
-import { GARDEN, READING, ROOM, inGarden } from './room/layout'
+import { FIRE, GARDEN, READING, ROOM, fireSeatAt, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
@@ -51,7 +51,7 @@ export interface RoomHandle {
 
 // Camera framing for each stop: where the camera sits and what it looks at.
 const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, number, number] }> = {
-  overview: { pos: [9.4, 8.8, 11.6], look: [-2.3, 1.0, -0.2] },
+  overview: { pos: [15.2, 13.2, 18.0], look: [-5.6, 0.8, -0.4] },
   desk: { pos: [0.3, 2.35, -0.5], look: [0.2, 1.55, -3.5] },
   gpu: { pos: [3.3, 1.5, -0.9], look: [1.9, 0.6, -3.2] },
   phone: { pos: [-0.35, 2.1, -1.6], look: [-0.5, 1.2, -2.8] },
@@ -62,7 +62,7 @@ const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, numb
   arcade: { pos: [4.4, 1.95, -1.1], look: [4.6, 1.35, -3.5] },
   window: { pos: [0.6, 2.6, 0.8], look: [-3.9, 2.6, -1.6] },
   door: { pos: [0.4, 2.1, 2.0], look: [-4.6, 1.4, 2.85] },
-  garden: { pos: [-9.3, 2.7, 6.1], look: [-4.6, 1.5, 1.0] },
+  garden: { pos: [-7.4, 3.2, 6.3], look: [-12.6, 1.0, 0.8] },
   mug: { pos: [1.95, 2.0, -1.75], look: [1.0, 1.25, -2.65] },
 }
 
@@ -553,7 +553,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(yardRoot)
   const yard = buildBackyard(kit, yardRoot)
   // The lawn is the garden's click target.
-  pickBox(8.6, 0.1, 9, -8.6, 0.02, 1.6, garden)
+  pickBox(13.4, 0.1, 12, -11.5, 0.02, 0.4, garden)
 
   // ---------- Models ----------
   const loaded: THREE.Object3D[] = []
@@ -849,17 +849,18 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const hemi = new THREE.HemisphereLight('#ffffff', '#b89b7c', 0.6)
   scene.add(hemi)
   const sun = new THREE.DirectionalLight('#fff1d6', 2.6)
-  sun.target.position.set(-3, 0, 0)
-  sun.position.set(-11, 8.5, 3) // low enough to come in through the window and the door
+  sun.target.position.set(-6, 0, 0.5)
+  sun.position.set(-14, 8.5, 3.5) // low enough to come in through the window and the door
   scene.add(sun.target)
   sun.castShadow = true
   const shadowSize = window.innerWidth < 800 ? 2048 : 4096
   sun.shadow.mapSize.set(shadowSize, shadowSize)
   const sc = sun.shadow.camera
-  sc.left = sc.bottom = -11
-  sc.right = sc.top = 11
+  // The scene runs from the far garden (x -18) to the room's right wall (x 6): the shadow camera covers all of it.
+  sc.left = sc.bottom = -15
+  sc.right = sc.top = 15
   sc.near = 0.5
-  sc.far = 40
+  sc.far = 70
   sun.shadow.bias = -0.0004
   sun.shadow.normalBias = 0.03
   scene.add(sun)
@@ -873,7 +874,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(sky.mesh)
   const ground = buildGround(42)
   scene.add(ground.mesh)
-  const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
+  const SUN_TARGET = new THREE.Vector3(-6, 0, 0.5)
   const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
   // By day the light comes from high over the garden; the disc you see sits lower in the west, where
   // eye-level views (through the window, across the garden) can find it.
@@ -885,7 +886,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const applyNight = () => {
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
     const dir = night ? SUN_SUNSET : SUN_DAY
-    sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
+    sun.position.copy(SUN_TARGET).addScaledVector(dir, 26) // far enough back that the whole garden is in front of the shadow camera
     sky.set(night ? SKY_SUNSET : SKY_DAY, night ? dir : SUN_DAY_DISC, night ? 1 : 0)
     ground.set(night ? '#2b2a3a' : '#9fb489', (night ? SKY_SUNSET : SKY_DAY).horizon)
     scene.environmentIntensity = night ? 0.16 : 0.5
@@ -917,7 +918,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const pos = new THREE.Vector3(...VIEWS[id].pos)
     if (id === 'overview') {
       const across = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect
-      pos.sub(look).multiplyScalar(THREE.MathUtils.clamp(0.55 / across, 1, 2.3)).add(look)
+      pos.sub(look).multiplyScalar(THREE.MathUtils.clamp(0.47 / across, 1, 2.1)).add(look)
     }
     return { pos, look }
   }
@@ -940,7 +941,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   controls.rotateSpeed = 0.7
   controls.enablePan = false
   controls.minDistance = 1.2
-  controls.maxDistance = 34
+  controls.maxDistance = 64
   controls.minPolarAngle = 0.15
   controls.maxPolarAngle = 1.48 // never below the floor
   controls.autoRotate = !opts.reduced // the room turns slowly on its own until someone takes over
@@ -1036,6 +1037,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     return [
       // The armchair's seat is a touch forward of its centre, so you sit in the cushion, not the back.
       { id: 'armchair', label: 'the armchair', x: ac.x + Math.sin(ac.yaw) * 0.08, z: ac.z + Math.cos(ac.yaw) * 0.08, eyeY: 1.85, yaw: ac.yaw, pitch: -0.1 },
+      // The two stumps by the fire, facing it.
+      ...[0, 1].map((i) => {
+        const { x, z } = fireSeatAt(i)
+        return { id: `fire${i}`, label: 'a stump by the fire', x, z, eyeY: 1.62, yaw: Math.atan2(FIRE.x - x, FIRE.z - z), pitch: -0.32 }
+      }),
       { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.05, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
     ]
@@ -1073,7 +1079,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     standing = null
     const view = viewOf(id)
     // Close up, the camera stays near the thing; the whole room can be seen from further out.
-    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 34 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
+    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 64 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
     // The door swings wide when you head for the garden.
     doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
     fly(view.pos, view.look)

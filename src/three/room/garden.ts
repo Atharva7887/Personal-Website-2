@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import type { Kit } from './kit'
 import { grassTexture, woodTexture } from './textures'
-import { DECK, GARDEN, TREES } from './layout'
+import { buildFeatures } from './features'
+import { DECK, FIRE, GARDEN, TREES, inPond } from './layout'
 
 export interface VineSpot {
   pos: [number, number, number]
@@ -48,7 +49,7 @@ export function buildGarden(k: Kit) {
     tuft.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     tuft.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
   }
-  const TUFTS = 12000
+  const TUFTS = 17500 // the lawn grew by half, and so did the grass
   const blades = new THREE.InstancedMesh(tuft, mat('#ffffff', { roughness: 1, side: THREE.DoubleSide }), TUFTS)
   blades.name = 'Grass'
   blades.receiveShadow = true
@@ -59,8 +60,8 @@ export function buildGarden(k: Kit) {
   for (let i = 0; i < TUFTS; i++) {
     const x = X0 + 0.9 + rand() * (X1 - X0 - 1.0)
     const z = Z0 + 0.9 + rand() * (Z1 - Z0 - 1.1)
-    if (x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) {
-      blades.setMatrixAt(i, m4.makeScale(0, 0, 0)) // under the deck: none
+    if ((x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) || inPond(x, z, 0.45) || Math.hypot(x - FIRE.x, z - FIRE.z) < 1.0) {
+      blades.setMatrixAt(i, m4.makeScale(0, 0, 0)) // under the deck, in the pond or in the fire pit: none
       continue
     }
     const s = 0.6 + rand() * 0.9
@@ -214,6 +215,8 @@ export function buildGarden(k: Kit) {
     [-11.85, -1.7],
     [-11.9, -2.7],
   ]
+  // Branches: to the fire pit, and to a flat stone at the pond's edge.
+  path.push([-11.3, 2.65], [-12.2, 2.95], [-12.7, -1.2], [-13.5, -0.78])
   path.forEach(([x, z], i) => {
     const s = new THREE.Mesh(stoneGeo, stone)
     s.position.set(x, 0, z)
@@ -308,7 +311,7 @@ export function buildGarden(k: Kit) {
   garden.add(postLight)
 
   // ---------- Fireflies (night only) ----------
-  const FLIES = 26
+  const FLIES = 38
   const flyGeo = track(new THREE.BufferGeometry())
   const flyPos = new Float32Array(FLIES * 3)
   const flyBase = Array.from({ length: FLIES }, () => [X0 + 1.4 + rand() * (X1 - X0 - 2.4), 0.5 + rand() * 1.9, Z0 + 1.6 + rand() * 11, rand() * 6.28])
@@ -319,6 +322,9 @@ export function buildGarden(k: Kit) {
   flies.name = 'Fireflies'
   flies.visible = false
   garden.add(flies)
+
+  // ---------- The far end: pond, hammock, fire pit ----------
+  const features = buildFeatures(k, garden, bark)
 
   // Where vines hang: over the wall top, under the pergola, and by the window.
   const vineSpots: VineSpot[] = [
@@ -333,7 +339,7 @@ export function buildGarden(k: Kit) {
   return {
     root: garden,
     /** Parts of the garden that move on their own (trees sway): they must not be merged with the rest. */
-    moving: () => [drawnTrees, ...crowns],
+    moving: () => [drawnTrees, ...crowns, ...features.moving],
     vineSpots,
     /** Swap the stand-in grass blades and trees for the real models (garden.glb). */
     useModels(root: THREE.Object3D) {
@@ -362,12 +368,16 @@ export function buildGarden(k: Kit) {
           const off = rand() * 0.45
           const x = edge < 0.45 ? X0 + 0.95 + off : X0 + 1.0 + along * (X1 - X0 - 1.4)
           const z = edge < 0.45 ? Z0 + 1.0 + along * (Z1 - Z0 - 1.4) : edge < 0.7 ? Z0 + 0.95 + off : Z1 - 0.5 - off
+          if (inPond(x, z, 0.5)) {
+            inst.setMatrixAt(i, m4.makeScale(0, 0, 0))
+            continue
+          }
           m4.compose(new THREE.Vector3(x, -0.03, z), q, new THREE.Vector3(s, s, s))
           inst.setMatrixAt(i, m4)
         }
         garden.add(inst)
       }
-      scatter('GrassClump', 260, 0.42)
+      scatter('GrassClump', 390, 0.42)
       // Trees: one of the two models at each spot, sized to the stand-in it replaces.
       const kinds = ['TreeA', 'TreeB'].map((n) => root.getObjectByName(n)).filter((o): o is THREE.Object3D => !!o)
       if (kinds.length) {
@@ -394,8 +404,10 @@ export function buildGarden(k: Kit) {
       stringLight.intensity = night ? 7 : 0
       postLight.intensity = night ? 16 : 0
       lanternMat.emissiveIntensity = night ? 2.4 : 0
+      features.setNight(night)
     },
     update(t: number) {
+      features.update(t)
       crowns.forEach((c, i) => {
         c.rotation.z = Math.sin(t * 0.7 + i * 2) * 0.008
         c.rotation.x = Math.cos(t * 0.5 + i) * 0.006
