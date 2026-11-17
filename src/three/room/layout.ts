@@ -80,7 +80,7 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x0: -2.5, x1: -0.95, z0: -4, z1: -3.4 }, // sideboard
     { x0: 4.05, x1: 5.15, z0: -4, z1: -3.0 }, // arcade
     { x0: -4, x1: -3.35, z0: -0.45, z1: 2.05 }, // bookshelves
-    { x0: -0.5, x1: 2.85, z0: 2.4, z1: 3.9 }, // sofa
+    { x0: -0.5, x1: 2.85, z0: 3.09, z1: ROOM.z1 }, // sofa, back to the front wall
     { x0: 4.4, x1: 5.85, z0: 1.65, z1: 3.15 }, // armchair
     { x0: READING.cabinet.x - READING.cabinet.depth / 2 - 0.1, x1: ROOM.x1, z0: READING.cabinet.z - READING.cabinet.len / 2, z1: READING.cabinet.z + READING.cabinet.len / 2 }, // record cabinet
     // In the garden

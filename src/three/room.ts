@@ -529,11 +529,12 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const reading = buildCorner(kit, scene, nearWalls, walnut, brass)
 
   // ---------- A place to sit: the sofa model, or a bean bag if it does not load ----------
-  const SOFA: [number, number, number] = [1.15, 0, 3.1]
+  // Its back (measured on the loaded model: 2.25 deep, so its back is 1.12 behind its origin) sits 4 cm off the front wall's skirting.
+  const SOFA: [number, number, number] = [1.15, 0, 3.79]
   const seating = new THREE.Group()
   seating.name = 'Seating'
   scene.add(seating)
-  const bag = mesh(new THREE.SphereGeometry(0.8, 28, 18), mat('#3d4a78', { roughness: 1 }), 2.75, 0.4, 1.5)
+  const bag = mesh(new THREE.SphereGeometry(0.8, 28, 18), mat('#3d4a78', { roughness: 1 }), 1.3, 0.4, 3.75)
   bag.name = 'Bean bag'
   bag.visible = false
   bag.scale.set(1, 0.56, 1)
@@ -1040,7 +1041,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         const { x, z } = fireSeatAt(i)
         return { id: `fire${i}`, label: 'a stump by the fire', x, z, eyeY: 1.62, yaw: Math.atan2(FIRE.x - x, FIRE.z - z), pitch: -0.42 }
       }),
-      { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.05, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
+      { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.74, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
     ]
   })
