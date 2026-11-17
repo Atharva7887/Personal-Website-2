@@ -3,6 +3,13 @@
 
 /** The room's floor, inside the walls: 10 wide and 9 deep. The left and back walls are fixed; it grows towards +x and +z. */
 export const ROOM = { x0: -4, x1: 6, z0: -4, z1: 5 }
+/** The reading and listening corner by the right-hand window: armchair, side table with a lamp, record cabinet, round rug. */
+export const READING = {
+  chair: { x: 5.1, z: 2.4, yaw: -1.82 }, // the armchair, facing into the room
+  table: { x: 5.38, z: 3.88 }, // the side table (and its lamp), on the chair's left
+  cabinet: { x: 5.71, z: -0.95, len: 2.3, depth: 0.54 }, // the low record cabinet against the right wall, turntable on top
+  rug: { x: 4.5, z: 2.55, r: 1.45 },
+}
 /** The garden: outside the room's left wall (x < -4.2), reached through the door. */
 export const GARDEN = { x0: -13.6, x1: -4.2, z0: -6.2, z1: 6.8 }
 /** The timber deck outside the door; its top is DECK.y above the lawn. */
@@ -33,6 +40,8 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x0: 4.05, x1: 5.15, z0: -4, z1: -3.0 }, // arcade
     { x0: -4, x1: -3.35, z0: -0.45, z1: 2.05 }, // bookshelves
     { x0: -0.5, x1: 2.85, z0: 2.4, z1: 3.9 }, // sofa
+    { x0: 4.4, x1: 5.85, z0: 1.65, z1: 3.15 }, // armchair
+    { x0: READING.cabinet.x - READING.cabinet.depth / 2 - 0.1, x1: ROOM.x1, z0: READING.cabinet.z - READING.cabinet.len / 2, z1: READING.cabinet.z + READING.cabinet.len / 2 }, // record cabinet
     // In the garden
     { x0: SHED.x - SHED.w / 2 - 0.1, x1: SHED.x + SHED.w / 2 + 0.1, z0: SHED.z - SHED.d / 2 - 0.1, z1: SHED.z + SHED.d / 2 + 0.1 },
     { x0: -5.05, x1: -4.2, z0: -3.05, z1: -0.35 }, // flower bed under the window
@@ -44,6 +53,7 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x: -2.9, z: -0.5, r: 0.3 }, // floor lamp
     { x: 3.4, z: 0.5, r: 0.45 }, // side table
     { x: 3.62, z: -0.45, r: 0.3 }, // console
+    { x: READING.table.x, z: READING.table.z, r: 0.45 }, // side table with the lamp
     { x: -3.38, z: 3.72, r: 0.35 }, // pothos
     { x: GREENHOUSE.x, z: GREENHOUSE.z, r: 2.25 },
     ...TREES.map(([x, z]) => ({ x, z, r: 0.35 })),

@@ -10,8 +10,9 @@ import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
 import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
+import { buildCorner } from './room/corner'
 import { dedupeMaterials, mergeStatic } from './room/merge'
-import { GARDEN, ROOM, inGarden } from './room/layout'
+import { GARDEN, READING, ROOM, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
@@ -522,6 +523,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // No shadow from this lamp: a point light's shadow is six extra renders of the scene.
   scene.add(lampLight)
 
+  // ---------- Reading corner: armchair, side table and lamp, record cabinet, round rug ----------
+  const reading = buildCorner(kit, scene, nearWalls, walnut, brass)
+
   // ---------- A place to sit: the sofa model, or a bean bag if it does not load ----------
   const SOFA: [number, number, number] = [1.15, 0, 3.1]
   const seating = new THREE.Group()
@@ -827,7 +831,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const mergeRoom = () => {
     dedupeMaterials(loaded)
     const stats = mergeStatic(
-      [...groups.values(), sideboard, outside.root, yardRoot, yard.neighbour],
+      [...groups.values(), sideboard, reading.corner, outside.root, yardRoot, yard.neighbour],
       [leaf, ...swaying, ...outside.moving(), yard.dog, ...occluders],
       (g) => track(g),
     )
@@ -893,6 +897,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     fill.intensity = night ? 0.22 : 0.5
     fill.color.set(night ? '#7a6ad8' : '#c9d1ff')
     lampLight.intensity = night ? 14 : 0
+    reading.setNight(night)
     shadeMat.emissiveIntensity = night ? 1.6 : 0
     gpuLight.intensity = night ? 10 : 5
     monitorGlow.intensity = night ? 5 : 0
@@ -1020,14 +1025,17 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     onSeat: (n, s) => ev.onSeat?.(n?.label ?? null, s?.label ?? null),
     onLock: (l) => ev.onLock?.(l),
   })
-  // Somewhere to sit: the sofa, facing into the room, and the desk chair, facing the monitor.
+  // Somewhere to sit: the sofa and the armchair, facing into the room, and the desk chair, facing the monitor.
   walker.setSeats(() => {
     const cx = chair.position.x
     const cz = chair.position.z
     const mx = DESK_X
     const mz = DESK_Z
     const toDesk = Math.hypot(mx - cx, mz - cz)
+    const ac = READING.chair
     return [
+      // The armchair's seat is a touch forward of its centre, so you sit in the cushion, not the back.
+      { id: 'armchair', label: 'the armchair', x: ac.x + Math.sin(ac.yaw) * 0.08, z: ac.z + Math.cos(ac.yaw) * 0.08, eyeY: 1.85, yaw: ac.yaw, pitch: -0.1 },
       { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.05, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
     ]
