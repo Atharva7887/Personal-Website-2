@@ -11,10 +11,12 @@
 // would quantise twice). Draco input is read too (draco3dgltf is a dev dependency for that).
 //
 // What it does to each file:
-//   1. nudges any texture whose sides are not multiples of 4 (GPUs store compressed textures in 4x4 blocks);
-//   2. KTX2 (unless --textures keep): normal, occlusion and metal-rough maps as UASTC (ETC1S's block artefacts
-//      would show up as faceting in a normal map), everything else (colour, emissive) as ETC1S, which is smaller.
-//      Colour spaces follow each map's slot, so sRGB and linear stay right. This is the glTF-Transform CLI;
+//   1. converts textures to PNG for toktx, nudging any whose sides are not multiples of 4 (GPUs store compressed
+//      textures in 4x4 blocks);
+//   2. KTX2 (unless --textures keep), as ETC1S: small files, and the GPU keeps them compressed (1 byte a pixel
+//      instead of 4). Normal maps get a higher quality than the rest. UASTC looks better still but was 5-10x the
+//      size of the WebP it replaced, so it is only there as --normal-maps uastc. Colour spaces follow each map's
+//      slot, so sRGB and linear stay right. This step is the glTF-Transform CLI;
 //   3. reorders triangles for the GPU's vertex cache;
 //   4. quantises vertex data to integers. glTF stores the position scale and offset on the node, so the
 //      node's real transform is saved in its extras first and src/three/room/assets.ts puts it back on load;
@@ -37,9 +39,12 @@ const flag = (name) => {
 }
 const textures = flag('--textures') ?? 'ktx2'
 const outDir = flag('--out')
+const quality = Number(flag('--quality') ?? 128) // ETC1S, 1-255
+const normalMaps = flag('--normal-maps') ?? 'etc1s'
+const normalQuality = Number(flag('--normal-quality') ?? 192)
 const inDir = args[0]
-if (!inDir || !['ktx2', 'keep'].includes(textures)) {
-  console.error('usage: node compress.mjs <models folder> [--out <folder>] [--textures ktx2|keep]')
+if (!inDir || !['ktx2', 'keep'].includes(textures) || !['etc1s', 'uastc'].includes(normalMaps)) {
+  console.error('usage: node compress.mjs <models folder> [--out <folder>] [--textures ktx2|keep] [--quality 1-255] [--normal-maps etc1s|uastc] [--normal-quality 1-255]')
   process.exit(1)
 }
 if (textures === 'ktx2' && spawnSync('toktx', ['--version'], { shell: true }).status !== 0) {
@@ -84,21 +89,23 @@ for (const file of fs.readdirSync(inDir).filter((f) => f.endsWith('.glb'))) {
     node.setExtras({ ...node.getExtras(), unquantised: { t: node.getTranslation(), r: node.getRotation(), s: node.getScale() } })
   }
   if (textures === 'ktx2') {
+    // toktx reads PNG and JPEG but not WebP, so every texture goes through sharp as a lossless PNG.
     for (const t of doc.getRoot().listTextures()) {
       const [w, h] = t.getSize() ?? [0, 0]
-      if (w % 4 === 0 && h % 4 === 0) continue
-      const png = await sharp(Buffer.from(t.getImage())).resize(nearest4(w), nearest4(h), { fit: 'fill' }).png().toBuffer()
+      const to = nearest4(w) === w && nearest4(h) === h ? [w, h] : [nearest4(w), nearest4(h)]
+      const png = await sharp(Buffer.from(t.getImage())).resize(to[0], to[1], { fit: 'fill' }).png().toBuffer()
       t.setImage(new Uint8Array(png)).setMimeType('image/png')
-      console.log(`${file}: resized ${t.getName()} ${w}x${h} -> ${nearest4(w)}x${nearest4(h)}`)
+      if (to[0] !== w || to[1] !== h) console.log(`${file}: resized ${t.getName()} ${w}x${h} -> ${to[0]}x${to[1]}`)
     }
   }
   let current = stage(file, 1)
   await io.write(current, doc)
 
   if (textures === 'ktx2' && doc.getRoot().listTextures().length) {
-    const linear = '{normalTexture,occlusionTexture,metallicRoughnessTexture}'
-    gltfTransform('uastc', current, stage(file, 2), '--slots', linear, '--level', '4', '--rdo', '--rdo-lambda', '4')
-    gltfTransform('etc1s', stage(file, 2), stage(file, 3), '--quality', '255')
+    // Normal maps first, then everything else (colour, emissive, occlusion, metal-rough) as ETC1S.
+    if (normalMaps === 'uastc') gltfTransform('uastc', current, stage(file, 2), '--slots', 'normalTexture', '--level', '2', '--zstd', '18')
+    else gltfTransform('etc1s', current, stage(file, 2), '--slots', 'normalTexture', '--quality', String(normalQuality))
+    gltfTransform('etc1s', stage(file, 2), stage(file, 3), '--quality', String(quality))
     current = stage(file, 3)
     doc = await io.read(current)
   }

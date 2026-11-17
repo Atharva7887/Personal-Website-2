@@ -566,7 +566,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         material.dispose()
       }
     })
-  const { loader, dispose: disposeLoader } = createModelLoader()
+  const { loader, dispose: disposeLoader } = createModelLoader(renderer)
   // Load progress across every model, weighted by size (a file without a known size counts as ~0.5 MB).
   const progress = new Map<string, { loaded: number; total: number; done: boolean }>()
   const report = () => {

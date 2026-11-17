@@ -1,14 +1,18 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 
 /**
- * The glTF loader for the room's models. Their geometry is meshopt-compressed (scripts/room-assets/compress.mjs).
- * The decoder is a few KB with its WebAssembly inlined, so there is nothing extra to fetch.
+ * The glTF loader for the room's models. Their geometry is meshopt-compressed and their textures are KTX2
+ * (scripts/room-assets/compress.mjs). The meshopt decoder is a few KB with its WebAssembly inlined. The Basis
+ * transcoder (public/basis, copied from three) turns the KTX2 textures into whatever compressed format the GPU
+ * reads directly, so they stay compressed in video memory too; it is fetched when the first texture needs it.
  */
-export function createModelLoader() {
-  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
-  return { loader, dispose() {} }
+export function createModelLoader(renderer: THREE.WebGLRenderer) {
+  const ktx2 = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(renderer)
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setKTX2Loader(ktx2)
+  return { loader, dispose: () => ktx2.dispose() }
 }
 
 type Attribute = THREE.BufferAttribute | THREE.InterleavedBufferAttribute
