@@ -915,7 +915,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const look = new THREE.Vector3(...VIEWS[id].look)
     const pos = new THREE.Vector3(...VIEWS[id].pos)
     if (id === 'overview') {
-      const across = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect
+      const across = Math.tan(THREE.MathUtils.degToRad((camera.aspect < 1 ? 58 : 38) / 2)) * camera.aspect
       pos.sub(look).multiplyScalar(THREE.MathUtils.clamp(0.47 / across, 1, 2.1)).add(look)
     }
     return { pos, look }
@@ -964,8 +964,51 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // Runs before the controls see the wheel: only ctrl + wheel (a trackpad pinch) zooms; touch pinch always can.
   // Standing somewhere, there is nothing to zoom: you look around instead.
   let standing: PlaceId | null = null
-  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey && !standing)
+  const onZoomWheel = (e: WheelEvent) => {
+    if (e.ctrlKey && (standing || walker.active)) {
+      // Standing or walking there is no distance to dolly, so ctrl + wheel (or a pinch) narrows the field of view instead.
+      e.preventDefault()
+      e.stopImmediatePropagation() // not a step forward
+      zoomBy(Math.exp(e.deltaY * 0.004))
+    }
+    controls.enableZoom = e.ctrlKey && !standing
+  }
   const onZoomDown = () => (controls.enableZoom = !standing)
+
+  // Keyboard zoom: ctrl + / ctrl - (and ctrl 0 to reset) zoom the 3D view instead of the page. In an orbit view
+  // the camera dollies in or out; standing or walking it narrows the field of view (down to about 25 degrees).
+  const baseFov = () => (camera.aspect < 1 ? 58 : 38)
+  let zoomTarget = 1 // field of view as a fraction of the normal one
+  let zoomNow = 1
+  let dollyGoal: number | null = null // the orbit distance the camera is easing towards
+  const zoomBy = (factor: number) => {
+    // factor < 1 zooms in
+    if (standing || walker.active) zoomTarget = THREE.MathUtils.clamp(zoomTarget * factor, 25 / baseFov(), 1)
+    else if (flyT >= 1) {
+      const from = dollyGoal ?? camera.position.distanceTo(controls.target)
+      dollyGoal = THREE.MathUtils.clamp(from * factor, controls.minDistance, controls.maxDistance)
+    }
+  }
+  const resetZoom = () => {
+    zoomTarget = 1
+    dollyGoal = null
+    if (!standing && !walker.active && flyT >= 1) {
+      const v = viewOf(current)
+      dollyGoal = THREE.MathUtils.clamp(v.pos.distanceTo(v.look), controls.minDistance, controls.maxDistance)
+    }
+  }
+  const onZoomKey = (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+    const code = e.code
+    const zoomIn = code === 'Equal' || code === 'NumpadAdd' || e.key === '+' || e.key === '='
+    const zoomOut = code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || e.key === '_'
+    const reset = code === 'Digit0' || code === 'Numpad0' || e.key === '0'
+    if (!zoomIn && !zoomOut && !reset) return
+    e.preventDefault() // the browser would zoom the whole page
+    if (reset) resetZoom()
+    else zoomBy(zoomIn ? 0.8 : 1.25)
+  }
+  window.addEventListener('keydown', onZoomKey)
 
   // Orbit: the camera circles what it looks at. Standing: the camera stays put and turns on the spot,
   // done by orbiting a point a few centimetres in front of the eye. A drag moves the view the way
@@ -1000,6 +1043,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     controls.target.copy(camLook)
   }
   const fly = (pos: THREE.Vector3, look: THREE.Vector3) => {
+    zoomTarget = 1 // a new view starts at the normal zoom
+    dollyGoal = null
     fromPos = camPos.clone()
     fromLook = camLook.clone()
     toPos = pos
@@ -1102,7 +1147,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     refreshShadows()
     camera.aspect = w / h
     // Narrow screens: widen the view so the whole room fits.
-    camera.fov = w / h < 1 ? 58 : 38
+    camera.fov = (w / h < 1 ? 58 : 38) * zoomNow
     camera.updateProjectionMatrix()
     // Keep the overview framed when the window changes shape.
     if (current === 'overview' && !standing && !walker.active && !pendingWalk && flyT >= 1 && !userMoved) {
@@ -1272,6 +1317,20 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         land()
       }
     }
+    // Keyboard zoom eases in: the field of view narrows, or the orbit camera moves along its line of sight.
+    if (zoomNow !== zoomTarget) {
+      zoomNow = opts.reduced || Math.abs(zoomNow - zoomTarget) < 0.002 ? zoomTarget : zoomNow + (zoomTarget - zoomNow) * (1 - Math.exp(-dt * 9))
+      camera.fov = baseFov() * zoomNow
+      camera.updateProjectionMatrix()
+      dirty = true
+    }
+    if (dollyGoal !== null && flyT >= 1 && !standing && !walker.active) {
+      const off = camera.position.clone().sub(controls.target)
+      const d = off.length()
+      const nd = opts.reduced || Math.abs(dollyGoal - d) < 0.01 ? dollyGoal : d + (dollyGoal - d) * (1 - Math.exp(-dt * 8))
+      if (nd === dollyGoal) dollyGoal = null
+      camera.position.copy(controls.target).addScaledVector(off.normalize(), nd)
+    }
     const k = 1 - Math.pow(0.05, dt)
     if (flyT < 1) {
       camera.position.copy(camPos)
@@ -1421,6 +1480,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       canvas.removeEventListener('pointerdown', onZoomDown, { capture: true })
       controls.dispose()
       document.removeEventListener('visibilitychange', syncRunning)
+      window.removeEventListener('keydown', onZoomKey)
       io.disconnect()
       loaded.forEach(disposeTree)
       disposeTree(chair) // moved out of its model, so not covered above
