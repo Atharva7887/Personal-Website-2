@@ -16,8 +16,6 @@ export const GARDEN = { x0: -18.2, x1: -4.2, z0: -6.2, z1: 6.8 }
 export const DECK = { x0: -7.2, x1: -4.2, z0: 0.7, z1: 4.75, y: 0.2 }
 /** The garden shed, in the far back corner (its door faces the lawn, +z). */
 export const SHED = { x: -11.9, z: -4.35, w: 2.1, d: 2.3 }
-/** The greenhouse model's spot. */
-export const GREENHOUSE = { x: -7.75, z: -3.2 }
 /** Trees: x, z, height, spread. */
 export const TREES: [number, number, number, number][] = [
   [-9.7, 0.9, 5.6, 1.1],
@@ -81,7 +79,6 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x: 3.62, z: -0.45, r: 0.3 }, // console
     { x: READING.table.x, z: READING.table.z, r: 0.45 }, // side table with the lamp
     { x: -3.38, z: 3.72, r: 0.35 }, // pothos
-    { x: GREENHOUSE.x, z: GREENHOUSE.z, r: 2.25 },
     ...TREES.map(([x, z]) => ({ x, z, r: 0.35 })),
     { x: POND.x - 1.1, z: POND.z, r: 1.7 }, // pond (three circles cover its shape)
     { x: POND.x, z: POND.z, r: 1.95 },

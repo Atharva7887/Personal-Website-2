@@ -733,29 +733,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     place('Pothos', scene, -3.38, 0, 3.72, 1.2, 1.3)
     loaded.push(plant, sideboard) // their models now live in these groups
   }, warn)
-  // The greenhouse at the back of the garden, lit from inside at night.
-  const GH: [number, number, number] = [-7.75, -0.03, -3.2]
-  const greenhouseGlow = new THREE.PointLight('#ffd9a0', 0, 7, 1.6)
-  greenhouseGlow.position.set(GH[0], 1.4, GH[2])
-  scene.add(greenhouseGlow)
-  const greenhouse = load('greenhouse.glb').then((root) => {
-    root.position.set(...GH)
-    root.rotation.y = Math.PI / 2
-    root.scale.setScalar(M)
-    root.traverse((o) => {
-      const material = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
-      if (!material) return
-      if (material.name === 'GreenhouseGlass') {
-        material.transparent = true
-        material.opacity = 0.32
-        material.roughness = 0.05
-        material.color.set('#cfe3ea')
-        material.side = THREE.DoubleSide
-        ;(o as THREE.Mesh).castShadow = false
-      }
-    })
-    scene.add(root)
-  }, warn)
   const gardenModels = load('garden.glb').then((root) => outside.useModels(root), warn)
   const interiorVines: VineSpot[] = [{ pos: [-3.72, 2.68, 1.7], scale: 1.1, rotY: 0.8 }]
   const vine = load('vine.glb').then(
@@ -833,7 +810,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     )
     if (import.meta.env.DEV) console.info(`Studio room: merged ${stats.before} meshes into ${stats.after}`)
   }
-  const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
+  const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, gardenModels, furniture]).then(() => {
     disposeLoader()
     qualityFrom = performance.now() + 2500
     trimShadowCasters()
@@ -899,7 +876,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     gpuLight.intensity = night ? 10 : 5
     monitorGlow.intensity = night ? 5 : 0
     galleryLight.intensity = night ? 7 : 0
-    greenhouseGlow.intensity = night ? 9 : 0
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
     yard.setNight(night)

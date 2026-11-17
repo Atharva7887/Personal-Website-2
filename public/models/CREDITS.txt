@@ -27,7 +27,6 @@ Credits panel in src/pages/Studio.tsx (or replace the models) before publishing:
 gaming.glb        Side table and controller: exports/refreences/Controller and stand/Untitled.glb
 plants.glb        ZZ plant: New ref/zz-plant-in-ceramic-pot-crafted-by-jerovdl (1).zip
                   Pothos: New ref/free-pothos-potted-plant-money-plant.zip
-greenhouse.glb    New ref/greenhouse-in-the-garden-draft.zip
 garden.glb        Trees: New ref/Grass and grass land/low-poly-tree-scene-free.zip
 vine.glb          Places and elements/vine-with-branch-3d-model-free.zip
 furniture.glb     PC: New ref/more/CUSTOM+GAMING+PC(1).blend (its product-photo and logo textures were removed)

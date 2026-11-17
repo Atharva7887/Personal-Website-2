@@ -152,7 +152,6 @@ export function buildGarden(k: Kit) {
       bush(bx * spread, by * spread, bz * spread, r, r * 0.85, r, Math.round(520 * br), 0.17 * spread, LEAF_GREENS, crown)
     }
   }
-  // The back of the garden is left clear for the greenhouse model (placed by room.ts).
   for (const [x, z, h, spread] of TREES) tree(x, z, h, spread)
 
   // ---------- Hedge along the far side and the back end ----------
