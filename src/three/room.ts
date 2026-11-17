@@ -51,7 +51,7 @@ export interface RoomHandle {
 
 // Camera framing for each stop: where the camera sits and what it looks at.
 const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, number, number] }> = {
-  overview: { pos: [15.2, 13.2, 18.0], look: [-5.6, 0.8, -0.4] },
+  overview: { pos: [13.9, 11.5, 16.4], look: [-5.6, -0.2, -0.4] },
   desk: { pos: [0.3, 2.35, -0.5], look: [0.2, 1.55, -3.5] },
   gpu: { pos: [3.3, 1.5, -0.9], look: [1.9, 0.6, -3.2] },
   phone: { pos: [-0.35, 2.1, -1.6], look: [-0.5, 1.2, -2.8] },
@@ -831,7 +831,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const mergeRoom = () => {
     dedupeMaterials(loaded)
     const stats = mergeStatic(
-      [...groups.values(), sideboard, reading.corner, outside.root, yardRoot, yard.neighbour],
+      [...groups.values(), sideboard, reading.corner, outside.root, yardRoot],
       [leaf, ...swaying, ...outside.moving(), yard.dog, ...occluders],
       (g) => track(g),
     )
@@ -1298,14 +1298,13 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
-    yard.showNeighbour(camera.position)
     {
       const c = camera.position
       nearWalls.visible = c.x > ROOM.x0 && c.x < ROOM.x1 - 0.05 && c.z > ROOM.z0 && c.z < ROOM.z1 - 0.05 && c.y < 5.2
     }
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
     // A wall stepping aside changes what the sun can reach, so the shadows are drawn again.
-    const shadowKey = (backWall.visible ? 1 : 0) | (sideWall[0].visible ? 2 : 0) | (yard.neighbourVisible() ? 4 : 0)
+    const shadowKey = (backWall.visible ? 1 : 0) | (sideWall[0].visible ? 2 : 0)
     if (shadowKey !== lastShadowKey) {
       lastShadowKey = shadowKey
       refreshShadows()

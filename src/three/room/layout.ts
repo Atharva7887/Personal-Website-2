@@ -25,8 +25,6 @@ export const TREES: [number, number, number, number][] = [
   [-12.6, 4.6, 4.8, 1.0], // one end of the hammock
   [-17.0, 4.6, 4.6, 1.0], // the other
 ]
-/** The neighbour's house, beyond the back hedge. */
-export const NEIGHBOUR = { x: -11.4, z: -9.6, w: 6.4, d: 4.4 }
 
 /** The pond in the back corner of the far garden: an irregular outline, a x b around its centre. */
 export const POND = { x: -15.3, z: -2.4, a: 2.2, b: 1.6 }
