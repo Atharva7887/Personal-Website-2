@@ -3,7 +3,7 @@ import type { Kit } from './kit'
 import { grassTexture, woodTexture } from './textures'
 import { buildFeatures } from './features'
 import { buildPond } from './pond'
-import { DECK, FIRE, GARDEN, POND_BANK, TREES, inPond, pondPoint } from './layout'
+import { DECK, FIRE, GARDEN, HOUSE, POND_BANK, PROPERTY, TREES, inHouse, inPond, pondPoint } from './layout'
 
 export interface VineSpot {
   pos: [number, number, number]
@@ -16,6 +16,7 @@ const X0 = GARDEN.x0 // far edge
 const X1 = GARDEN.x1 // the house wall
 const Z0 = GARDEN.z0
 const Z1 = GARDEN.z1
+const PX1 = PROPERTY.x1 // the lot runs on past the house, to the right
 
 const LEAF_GREENS = ['#3f7d3a', '#4f9144', '#2f6a35', '#5fa04a', '#3a7440']
 const HEDGE_GREENS = ['#2f6a35', '#35753a', '#2a5f30', '#3f7d3a']
@@ -30,7 +31,7 @@ export function buildGarden(k: Kit) {
   const grassTex = track(grassTexture())
   const grass = mat('#ffffff', { map: grassTex, roughness: 1 })
   const soil = mat('#5b4030', { roughness: 1 })
-  const lawn = tbox(X1 - X0, 0.2, Z1 - Z0, [soil, soil, grass, soil, soil, soil], (X0 + X1) / 2, -0.13, (Z0 + Z1) / 2, 3, garden)
+  const lawn = tbox(PX1 - X0, 0.2, Z1 - Z0, [soil, soil, grass, soil, soil, soil], (X0 + PX1) / 2, -0.13, (Z0 + Z1) / 2, 3, garden)
   lawn.name = 'Lawn'
   lawn.castShadow = false
   // The pond sits in a hole in the lawn, so its water can lie below the grass: the box keeps only its sides and
@@ -39,10 +40,18 @@ export function buildGarden(k: Kit) {
   {
     const shape = new THREE.Shape()
     shape.moveTo(X0, -Z0)
-    shape.lineTo(X1, -Z0)
-    shape.lineTo(X1, -Z1)
+    shape.lineTo(PX1, -Z0)
+    shape.lineTo(PX1, -Z1)
     shape.lineTo(X0, -Z1)
     shape.closePath()
+    // The house stands in its own hole, flush with the floor slab's edge, so the lawn runs right up to it all round.
+    const footprint = new THREE.Path()
+    footprint.moveTo(HOUSE.x0, -HOUSE.z0)
+    footprint.lineTo(HOUSE.x1, -HOUSE.z0)
+    footprint.lineTo(HOUSE.x1, -HOUSE.z1)
+    footprint.lineTo(HOUSE.x0, -HOUSE.z1)
+    footprint.closePath()
+    shape.holes.push(footprint)
     const hole = new THREE.Path()
     for (let i = 0; i < 96; i++) {
       const [x, z] = pondPoint((i / 96) * Math.PI * 2, POND_BANK)
@@ -79,7 +88,7 @@ export function buildGarden(k: Kit) {
     tuft.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     tuft.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
   }
-  const TUFTS = 17500 // the lawn grew by half, and so did the grass
+  const TUFTS = 24000 // the lawn grew by half, then wrapped round the house, and so did the grass
   const blades = new THREE.InstancedMesh(tuft, mat('#ffffff', { roughness: 1, side: THREE.DoubleSide }), TUFTS)
   blades.name = 'Grass'
   blades.receiveShadow = true
@@ -88,9 +97,9 @@ export function buildGarden(k: Kit) {
   const col = new THREE.Color()
   const UP = new THREE.Vector3(0, 1, 0)
   for (let i = 0; i < TUFTS; i++) {
-    const x = X0 + 0.9 + rand() * (X1 - X0 - 1.0)
+    const x = X0 + 0.9 + rand() * (PX1 - X0 - 1.0)
     const z = Z0 + 0.9 + rand() * (Z1 - Z0 - 1.1)
-    if ((x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) || inPond(x, z, 0.6) || Math.hypot(x - FIRE.x, z - FIRE.z) < 1.0) {
+    if (inHouse(x, z, 0.05) || (x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) || inPond(x, z, 0.6) || Math.hypot(x - FIRE.x, z - FIRE.z) < 1.0) {
       blades.setMatrixAt(i, m4.makeScale(0, 0, 0)) // under the deck, in the pond or in the fire pit: none
       continue
     }
@@ -212,15 +221,19 @@ export function buildGarden(k: Kit) {
     foliage(samples, 0.17, HEDGE_GREENS)
   }
   hedge(X0 + 0.45, (Z0 + Z1) / 2, 0.7, Z1 - Z0 - 0.2, 2.2)
-  hedge((X0 + X1) / 2 - 0.2, Z0 + 0.45, X1 - X0 - 1.6, 0.7, 2.2)
+  // The back hedge runs on behind the house to the right-hand corner, and a hedge down the right side closes the lot (no overlap at the corner).
+  hedge((X0 + 0.6 + PX1 - 0.1) / 2, Z0 + 0.45, PX1 - 0.1 - (X0 + 0.6), 0.7, 2.2)
+  hedge(PX1 - 0.45, (Z0 + 0.8 + Z1 - 0.25) / 2, 0.7, Z1 - 0.25 - (Z0 + 0.8), 2.2)
 
   // ---------- Picket fence along the front ----------
   const fenceWood = mat('#f1ece2', { roughness: 0.8 })
   const FZ = Z1 - 0.25
-  box(X1 - X0 - 1.0, 0.07, 0.05, fenceWood, (X0 + X1) / 2 + 0.3, 0.35, FZ - 0.04, garden)
-  box(X1 - X0 - 1.0, 0.07, 0.05, fenceWood, (X0 + X1) / 2 + 0.3, 0.85, FZ - 0.04, garden)
+  const FX0 = X0 + 0.6 // rails from the far hedge to the right-hand hedge, in front of the house as well
+  const FX1 = PX1 - 0.6
+  box(FX1 - FX0, 0.07, 0.05, fenceWood, (FX0 + FX1) / 2, 0.35, FZ - 0.04, garden)
+  box(FX1 - FX0, 0.07, 0.05, fenceWood, (FX0 + FX1) / 2, 0.85, FZ - 0.04, garden)
   const picketGeo = track(new THREE.BoxGeometry(0.13, 1.15, 0.04))
-  const PICKETS = Math.floor((X1 - X0 - 1.0) / 0.2)
+  const PICKETS = Math.floor((FX1 - (X0 + 0.95)) / 0.2)
   const pickets = new THREE.InstancedMesh(picketGeo, fenceWood, PICKETS)
   pickets.castShadow = pickets.receiveShadow = true
   for (let i = 0; i < PICKETS; i++) {
@@ -246,6 +259,9 @@ export function buildGarden(k: Kit) {
   ]
   // Branches: to the fire pit, and down the lawn's middle to the flat stone at the pond's south shore.
   path.push([-11.3, 2.65], [-12.2, 2.95], [-8.7, 1.35], [-8.35, 0.4], [-8.1, -0.45])
+  // Round the house: along its front, then up the right side, with a little wander so it does not look ruled.
+  for (let i = 0; i < 10; i++) path.push([-3.6 + i * 1.18, 5.9 + Math.sin(i * 1.9) * 0.12])
+  for (let i = 0; i < 8; i++) path.push([6.9 + Math.sin(i * 2.3) * 0.12, 5.3 - i * 1.25])
   path.forEach(([x, z], i) => {
     const s = new THREE.Mesh(stoneGeo, stone)
     s.position.set(x, 0, z)
@@ -424,10 +440,10 @@ export function buildGarden(k: Kit) {
           const edge = rand()
           const along = rand()
           const off = rand() * 0.45
-          let x = edge < 0.45 ? X0 + 0.95 + off : X0 + 1.0 + along * (X1 - X0 - 1.4)
-          let z = edge < 0.45 ? Z0 + 1.0 + along * (Z1 - Z0 - 1.4) : edge < 0.7 ? Z0 + 0.95 + off : Z1 - 0.5 - off
+          let x = edge < 0.3 ? X0 + 0.95 + off : edge < 0.85 ? X0 + 1.0 + along * (PX1 - X0 - 1.4) : PX1 - 0.95 - off
+          let z = edge < 0.3 || edge >= 0.85 ? Z0 + 1.0 + along * (Z1 - Z0 - 1.4) : edge < 0.6 ? Z0 + 0.95 + off : Z1 - 0.5 - off
           if (spot) [x, z] = spot()
-          if (inPond(x, z, 0.65)) {
+          if (inPond(x, z, 0.65) || inHouse(x, z, 0.1)) {
             inst.setMatrixAt(i, m4.makeScale(0, 0, 0))
             continue
           }
@@ -436,7 +452,7 @@ export function buildGarden(k: Kit) {
         }
         garden.add(inst)
       }
-      scatter('GrassClump', 390, 0.42)
+      scatter('GrassClump', 520, 0.42)
       // Longer grass round the pond's bank (the water's edge is left to the reeds) and through the meadow in its old corner.
       scatter('GrassClump', 70, 0.36, () => {
         const t = rand() * Math.PI * 2

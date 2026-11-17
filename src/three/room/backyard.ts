@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Kit } from './kit'
 import { woodTexture } from './textures'
-import { DECK, GARDEN, SHED, isFree } from './layout'
+import { DECK, GARDEN, PROPERTY, SHED, inHouse, isFree } from './layout'
 
 // The backyard: a timber deck outside the door, a shed in the corner, and a dog who wanders the lawn. All built here, in the room's own style.
 
@@ -183,15 +183,17 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
     let wagSpeed = 6
     const pickTarget = () => {
       for (let i = 0; i < 40; i++) {
-        const x = GARDEN.x0 + 1.3 + rand() * (GARDEN.x1 - GARDEN.x0 - 2.0)
+        const x = GARDEN.x0 + 1.3 + rand() * (PROPERTY.x1 - GARDEN.x0 - 2.3)
         const z = GARDEN.z0 + 1.3 + rand() * (GARDEN.z1 - GARDEN.z0 - 2.0)
         if (x > DECK.x0 - 0.6 && z > DECK.z0 - 0.5 && z < DECK.z1 + 0.5) continue // keep off the deck
-        if (!isFree(x, z, 0.45)) continue
+        if (!isFree(x, z, 0.45) || inHouse(x, z, 0.3)) continue // the walkable doorway must not lead the dog into the room
         // Straight line must stay clear.
         let clear = true
         for (let s = 1; s <= 10 && clear; s++) {
           const u = s / 10
-          clear = isFree(root.position.x + (x - root.position.x) * u, root.position.z + (z - root.position.z) * u, 0.4)
+          const lx = root.position.x + (x - root.position.x) * u
+          const lz = root.position.z + (z - root.position.z) * u
+          clear = isFree(lx, lz, 0.4) && !inHouse(lx, lz, 0.2)
         }
         if (!clear) continue
         target.set(x, z)
@@ -230,7 +232,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
           const speed = 0.9 * Math.max(0, Math.cos(angleTo(heading, want)))
           const nx = p.x + Math.sin(heading) * speed * dt
           const nz = p.z + Math.cos(heading) * speed * dt
-          if (isFree(nx, nz, 0.4)) {
+          if (isFree(nx, nz, 0.4) && !inHouse(nx, nz, 0.15)) {
             p.x = nx
             p.z = nz
             moving = speed > 0.05

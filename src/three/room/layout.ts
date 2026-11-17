@@ -12,6 +12,11 @@ export const READING = {
 }
 /** The garden: outside the room's left wall (x < -4.2), reached through the door. It runs on to x = -18.2. */
 export const GARDEN = { x0: -18.2, x1: -4.2, z0: -6.2, z1: 6.8 }
+/** The whole lot: the garden, plus a lawn strip along the back, the front and the right side of the house (the right strip is 2.2 wide, behind a hedge). */
+export const PROPERTY = { x0: GARDEN.x0, x1: ROOM.x1 + 0.2 + 2.2, z0: GARDEN.z0, z1: GARDEN.z1 }
+/** The house's footprint, outer faces of its walls and floor slab. Everything outside it (and inside PROPERTY) is lawn. */
+export const HOUSE = { x0: ROOM.x0 - 0.2, x1: ROOM.x1 + 0.2, z0: ROOM.z0 - 0.2, z1: ROOM.z1 + 0.2 }
+export const inHouse = (x: number, z: number, pad = 0) => x > HOUSE.x0 - pad && x < HOUSE.x1 + pad && z > HOUSE.z0 - pad && z < HOUSE.z1 + pad
 /** The timber deck outside the door; its top is DECK.y above the lawn. */
 export const DECK = { x0: -7.2, x1: -4.2, z0: 0.7, z1: 4.75, y: 0.2 }
 /** The garden shed, in the far back corner (its door faces the lawn, +z). */
@@ -108,6 +113,9 @@ export const WALKABLE: Rect[] = [
   { x0: ROOM.x0 + 0.3, x1: ROOM.x1 - 0.25, z0: ROOM.z0 + 0.35, z1: ROOM.z1 - 0.25 }, // room
   { x0: -4.75, x1: -3.5, z0: 2.4, z1: 3.2 }, // doorway
   { x0: GARDEN.x0 + 1.05, x1: -4.55, z0: GARDEN.z0 + 1.05, z1: GARDEN.z1 - 0.55 }, // lawn
+  { x0: -4.6, x1: PROPERTY.x1 - 1.05, z0: ROOM.z1 + 0.35, z1: GARDEN.z1 - 0.55 }, // lawn along the front of the house
+  { x0: ROOM.x1 + 0.35, x1: PROPERTY.x1 - 1.05, z0: GARDEN.z0 + 1.05, z1: ROOM.z1 + 0.5 }, // lawn down its right side
+  { x0: -4.6, x1: PROPERTY.x1 - 1.05, z0: GARDEN.z0 + 1.05, z1: ROOM.z0 - 0.5 }, // and along its back
 ]
 
 const inRect = (r: Rect, x: number, z: number, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && z > r.z0 - pad && z < r.z1 + pad
@@ -123,8 +131,8 @@ export function isFree(x: number, z: number, r = 0.28) {
 /** Height of the ground at x, z: the deck is raised, the lawn sits a touch below the room floor. */
 export function groundAt(x: number, z: number) {
   if (inRect(DECK, x, z)) return DECK.y - 0.03
-  return x < -4.2 ? -0.03 : 0
+  return inHouse(x, z) ? 0 : -0.03
 }
 
-/** Is the point in the garden (rather than the room)? */
-export const inGarden = (x: number) => x < -4.3
+/** Is the point outside the house (in the garden or on the lawn around it) rather than in the room? */
+export const inGarden = (x: number, z: number) => !inHouse(x, z, -0.1)

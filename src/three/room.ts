@@ -48,7 +48,7 @@ export interface RoomHandle {
 
 // Camera framing for each stop: where the camera sits and what it looks at.
 const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, number, number] }> = {
-  overview: { pos: [13.9, 11.5, 16.4], look: [-5.6, -0.2, -0.4] },
+  overview: { pos: [16.4, 12.4, 17.7], look: [-4.7, -0.2, -0.4] },
   desk: { pos: [0.3, 2.35, -0.5], look: [0.2, 1.55, -3.5] },
   gpu: { pos: [3.3, 1.5, -0.9], look: [1.9, 0.6, -3.2] },
   phone: { pos: [-0.35, 2.1, -1.6], look: [-0.5, 1.2, -2.8] },
@@ -1064,7 +1064,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const dir = look.clone().sub(pos).normalize()
     standing = null
     current = id === 'garden' ? 'garden' : 'overview'
-    walkPlace = inGarden(pos.x) ? 'garden' : 'room'
+    walkPlace = inGarden(pos.x, pos.z) ? 'garden' : 'room'
     doorTarget = DOOR_OPEN // the door stays open so you can walk through
     setStand()
     pendingWalk = { x: pos.x, z: pos.z, yaw: Math.atan2(dir.x, dir.z), pitch: Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)) }
@@ -1279,7 +1279,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     } else if (walker.update(dt)) {
       camPos.copy(camera.position)
       camera.getWorldDirection(camLook).multiplyScalar(3).add(camera.position)
-      const here: PlaceId = inGarden(camera.position.x) ? 'garden' : 'room'
+      const here: PlaceId = inGarden(camera.position.x, camera.position.z) ? 'garden' : 'room'
       if (here !== walkPlace) {
         walkPlace = here
         current = here === 'garden' ? 'garden' : 'overview'
@@ -1296,10 +1296,9 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
-    {
-      const c = camera.position
-      nearWalls.visible = c.x > ROOM.x0 && c.x < ROOM.x1 - 0.05 && c.z > ROOM.z0 && c.z < ROOM.z1 - 0.05 && c.y < 5.2
-    }
+    // The front and right walls close the room in at eye level, from outside too (the brick shows on the lawn
+    // beside it). Only the raised orbit views, overview and from above, keep it an open box.
+    nearWalls.visible = camera.position.y < 5.5 || !!standing || walker.active
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
     // A wall stepping aside changes what the sun can reach, so the shadows are drawn again.
     const shadowKey = (backWall.visible ? 1 : 0) | (sideWall[0].visible ? 2 : 0)
