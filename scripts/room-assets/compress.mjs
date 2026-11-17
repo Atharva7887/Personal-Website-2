@@ -39,9 +39,9 @@ const flag = (name) => {
 }
 const textures = flag('--textures') ?? 'ktx2'
 const outDir = flag('--out')
-const quality = Number(flag('--quality') ?? 128) // ETC1S, 1-255
+const quality = Number(flag('--quality') ?? 64) // ETC1S, 1-255: 64 looked the same as 128 in close-ups and saves ~0.6 MB
 const normalMaps = flag('--normal-maps') ?? 'etc1s'
-const normalQuality = Number(flag('--normal-quality') ?? 192)
+const normalQuality = Number(flag('--normal-quality') ?? 128)
 const inDir = args[0]
 if (!inDir || !['ktx2', 'keep'].includes(textures) || !['etc1s', 'uastc'].includes(normalMaps)) {
   console.error('usage: node compress.mjs <models folder> [--out <folder>] [--textures ktx2|keep] [--quality 1-255] [--normal-maps etc1s|uastc] [--normal-quality 1-255]')
