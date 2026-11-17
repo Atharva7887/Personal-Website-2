@@ -57,9 +57,9 @@ const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, numb
   shelf: { pos: [0.4, 2.5, 1.6], look: [-3.8, 1.9, 0.6] },
   plant: { pos: [-0.9, 1.9, -0.7], look: [-3.0, 1.0, -3.0] },
   arcade: { pos: [4.4, 1.95, -1.1], look: [4.6, 1.35, -3.5] },
-  window: { pos: [0.6, 2.6, 0.8], look: [-3.9, 2.6, -1.6] },
+  window: { pos: [-1.5, 3.0, -1.0], look: [-5.4, 0.7, -3.0] },
   door: { pos: [0.4, 2.1, 2.0], look: [-4.6, 1.4, 2.85] },
-  garden: { pos: [-7.4, 3.2, 6.3], look: [-12.6, 1.0, 0.8] },
+  garden: { pos: [-6.6, 3.0, 6.3], look: [-8.0, 0.2, -2.0] },
   mug: { pos: [1.95, 2.0, -1.75], look: [1.0, 1.25, -2.65] },
 }
 
@@ -110,6 +110,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const envTarget = pmrem.fromScene(envScene, 0.04)
   scene.environment = envTarget.texture
   pmrem.dispose()
+
+  // The pond reflects a cube map taken once from its centre (not a live mirror, which would redraw the scene
+  // every frame): after the models are in, and again whenever the sky changes.
+  const reflection = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter })
+  const reflectionCam = new THREE.CubeCamera(0.05, 100, reflection)
 
   // Interactive groups
   const groups = new Map<StopId, THREE.Group>()
@@ -816,6 +821,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     trimShadowCasters()
     mergeRoom()
     refreshShadows()
+    modelsIn = true
+    captureReflection()
   })
 
   // ---------- Lights ----------
@@ -855,6 +862,22 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
 
   let night = opts.night
+  let modelsIn = false
+  /** Photograph the surroundings from the pond's centre for its water to reflect (sky included, the water itself left out). */
+  const captureReflection = () => {
+    const { pond } = outside
+    pond.hideForCapture(true)
+    const groundShown = ground.mesh.visible
+    ground.mesh.visible = true
+    reflectionCam.position.copy(pond.centre)
+    sky.follow(reflectionCam)
+    reflectionCam.update(renderer, scene)
+    sky.follow(camera)
+    ground.mesh.visible = groundShown
+    pond.hideForCapture(false)
+    pond.setReflection(reflection.texture, pond.centre)
+    dirty = true
+  }
   // Night in Pune is shown as a sunset: a low orange sun, a dusky sky, and every lamp on.
   const applyNight = () => {
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
@@ -878,8 +901,10 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     galleryLight.intensity = night ? 7 : 0
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
+    outside.pond.setSun(night ? dir : SUN_DAY_DISC)
     yard.setNight(night)
     refreshShadows() // the sun moved
+    if (modelsIn) captureReflection() // the sky and the lamps changed
   }
   applyNight()
 
@@ -918,6 +943,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   controls.maxPolarAngle = 1.48 // never below the floor
   controls.autoRotate = !opts.reduced // the room turns slowly on its own until someone takes over
   controls.autoRotateSpeed = 0.45
+  if (import.meta.env.DEV) Object.assign(window, { __studioControls: controls })
   let userMoved = false
   const onControlsStart = () => {
     userMoved = true
@@ -1400,6 +1426,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       disposeTree(chair) // moved out of its model, so not covered above
       kit.dispose()
       envTarget.dispose()
+      reflection.dispose()
       envScene.dispose()
       sky.dispose()
       ground.dispose()

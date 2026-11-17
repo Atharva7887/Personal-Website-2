@@ -3,49 +3,11 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Kit } from './kit'
 import { canvasTexture, mulberry32 } from './textures'
-import { FIRE, HAMMOCK, POND, fireSeatAt, pondShore } from './layout'
+import { FIRE, HAMMOCK, fireSeatAt } from './layout'
 
-// What the far end of the garden holds: a pond with reeds and lily pads, a hammock between two trees, and a
-// fire pit with seats. Static pieces share materials, so merge.ts fuses them with the rest of the garden;
-// whatever moves (the water, the hammock, the flames) is handed back in `moving` so it is left alone.
-
-/** Tileable ripples as a normal map: a few crossed sine waves, so the water's sheen drifts as the map scrolls. */
-function waterNormals() {
-  const N = 128
-  const t = canvasTexture(
-    N,
-    N,
-    (x) => {
-      const waves = [
-        [3, 1, 0.3, 1],
-        [-2, 4, 1.7, 0.8],
-        [5, 3, 2.9, 0.5],
-        [1, -6, 4.1, 0.4],
-      ]
-      const height = (px: number, py: number) => {
-        let h = 0
-        for (const [kx, ky, ph, a] of waves) h += a * Math.sin(((kx * px + ky * py) / N) * Math.PI * 2 + ph)
-        return h
-      }
-      const img = x.createImageData(N, N)
-      for (let py = 0; py < N; py++)
-        for (let px = 0; px < N; px++) {
-          const dx = height(px + 1, py) - height(px - 1, py)
-          const dy = height(px, py + 1) - height(px, py - 1)
-          const len = Math.hypot(dx * 1.4, dy * 1.4, 1)
-          const i = (py * N + px) * 4
-          img.data[i] = ((-dx * 1.4) / len) * 127 + 128
-          img.data[i + 1] = ((-dy * 1.4) / len) * 127 + 128
-          img.data[i + 2] = (1 / len) * 127 + 128
-          img.data[i + 3] = 255
-        }
-      x.putImageData(img, 0, 0)
-    },
-    true,
-  )
-  t.colorSpace = THREE.NoColorSpace // a normal map is data, not a colour
-  return t
-}
+// What the far end of the garden holds: a hammock between two trees and a fire pit with seats (the pond is in pond.ts).
+// Static pieces share materials, so merge.ts fuses them with the rest of the garden;
+// whatever moves (the hammock, the flames) is handed back in `moving` so it is left alone.
 
 /** Bands along the length of the hammock. */
 function hammockTexture() {
@@ -78,137 +40,10 @@ export function buildFeatures(k: Kit, garden: THREE.Group, bark: THREE.Material)
     return track(merged)
   }
 
-  // ---------- Pond ----------
-  const shore = (theta: number, scale: number) => {
-    const f = pondShore(theta) * scale
-    return [POND.x + Math.cos(theta) * POND.a * f, POND.z + Math.sin(theta) * POND.b * f] as const
-  }
-  const SEG = 64
-  /** A flat fan out to the pond's outline (scaled), lying at height y, centre one colour and rim another. */
-  const fan = (scale: number, y: number, centre: string, rim: string) => {
-    const pos: number[] = [POND.x, y, POND.z]
-    const nor: number[] = [0, 1, 0]
-    const uv: number[] = [POND.x * 0.22, POND.z * 0.22]
-    const colour: number[] = []
-    const c0 = new THREE.Color(centre)
-    const c1 = new THREE.Color(rim)
-    colour.push(c0.r, c0.g, c0.b)
-    for (let i = 0; i < SEG; i++) {
-      const [x, z] = shore((i / SEG) * Math.PI * 2, scale)
-      pos.push(x, y, z)
-      nor.push(0, 1, 0)
-      uv.push(x * 0.22, z * 0.22)
-      colour.push(c1.r, c1.g, c1.b)
-    }
-    const index: number[] = []
-    for (let i = 0; i < SEG; i++) index.push(0, 1 + ((i + 1) % SEG), 1 + i) // counter-clockwise from above
-    const g = track(new THREE.BufferGeometry())
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
-    g.setAttribute('color', new THREE.Float32BufferAttribute(colour, 3))
-    g.setIndex(index)
-    return g
-  }
-  // Wet earth round the water, then the water itself: deep in the middle, pale and clear at the shallow edge.
-  const mud = new THREE.Mesh(fan(1.3, -0.018, '#4a3a2c', '#4a3a2c'), mat('#4a3a2c', { roughness: 1 }))
-  mud.receiveShadow = true
-  mud.userData.noMerge = true
-  garden.add(mud)
-  const ripples = track(waterNormals())
-  ripples.repeat.set(1, 1)
-  const waterMat = track(
-    new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.06, metalness: 0.1, normalMap: ripples, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.4 }),
-  )
-  const water = new THREE.Mesh(fan(1, -0.004, '#27596a', '#6fa5a2'), waterMat)
-  water.name = 'Pond water'
-  water.receiveShadow = false // a hedge's shadow would cut a hard line across the glassy surface
-  water.userData.noMerge = true
-  garden.add(water)
-
-  // Edging stones round the shore, each a squashed rock a little different from its neighbours.
+  // Stones for the fire pit's edge.
   const rock = mat('#a8a39a', { roughness: 0.95 })
   const rockDark = mat('#8d8a84', { roughness: 0.95 })
   const rockGeo = track(new THREE.DodecahedronGeometry(1, 0))
-  const STONES = 30
-  for (let i = 0; i < STONES; i++) {
-    const [x, z] = shore((i / STONES) * Math.PI * 2 + (rand() - 0.5) * 0.08, 1.14 + rand() * 0.06)
-    const s = 0.2 + rand() * 0.12
-    const m = new THREE.Mesh(rockGeo, i % 3 ? rock : rockDark)
-    m.position.set(x, 0.015, z)
-    m.rotation.set(rand() * 3, rand() * 6, rand() * 3)
-    m.scale.set(s * (1 + rand() * 0.4), s * 0.5, s * (0.9 + rand() * 0.3))
-    m.receiveShadow = true
-    garden.add(m)
-  }
-  // A flat stepping stone at the south-east shore, to look over the water from.
-  for (const [x, z, sx] of [
-    [-13.45, -0.62, 0.5],
-    [-14.2, -0.48, 0.42],
-  ] as const) {
-    const flat = new THREE.Mesh(k.track(new THREE.CylinderGeometry(sx, sx * 1.08, 0.08, 9)), rock)
-    flat.position.set(x, 0.01, z)
-    flat.receiveShadow = true
-    garden.add(flat)
-  }
-
-  // Lily pads (a disc with a notch cut out) and a few lotus flowers.
-  const padMat = mat('#4a9a4e', { roughness: 0.7, side: THREE.DoubleSide })
-  const padDark = mat('#3b8442', { roughness: 0.7, side: THREE.DoubleSide })
-  for (let i = 0; i < 9; i++) {
-    const a = i * 2.4 + 0.5
-    const rho = 0.22 + ((i * 0.37) % 0.55)
-    const [x, z] = shore(a, rho)
-    const r = 0.2 + rand() * 0.12
-    const pad = new THREE.Mesh(track(new THREE.CircleGeometry(r, 16, rand() * 6, 5.5)), i % 2 ? padMat : padDark)
-    pad.rotation.x = -Math.PI / 2
-    pad.position.set(x, 0.006, z)
-    pad.receiveShadow = true
-    garden.add(pad)
-  }
-  const lotus = mat('#ffa3c4', { roughness: 0.6 })
-  const lotusCore = mat('#ffd35c', { roughness: 0.6 })
-  for (const [a, rho] of [
-    [0.9, 0.45],
-    [3.4, 0.55],
-    [5.5, 0.35],
-  ]) {
-    const [x, z] = shore(a, rho)
-    for (let p = 0; p < 6; p++) {
-      const petal = mesh(track(new THREE.ConeGeometry(0.05, 0.14, 5)), lotus, x + Math.cos(p) * 0.05, 0.08, z + Math.sin(p) * 0.05, garden)
-      petal.rotation.set(Math.sin(p) * 0.6, 0, -Math.cos(p) * 0.6)
-      petal.castShadow = false
-    }
-    mesh(track(new THREE.SphereGeometry(0.035, 8, 6)), lotusCore, x, 0.1, z, garden).castShadow = false
-  }
-
-  // Reeds and cattails, thickest in the back corner away from the path.
-  const reed = mat('#7c9a45', { roughness: 0.9 })
-  const reedGeo = track(new THREE.CylinderGeometry(0.008, 0.014, 1, 4))
-  const head = mat('#5a3a22', { roughness: 0.9 })
-  const headGeo = track(new THREE.CylinderGeometry(0.028, 0.028, 0.17, 6))
-  for (let c = 0; c < 6; c++) {
-    const a = Math.PI * 1.0 + c * 0.42 + rand() * 0.2 // round the west and north shore
-    const [cx, cz] = shore(a, 1.12)
-    for (let i = 0; i < 6; i++) {
-      const h = 0.9 + rand() * 0.8
-      const x = cx + (rand() - 0.5) * 0.45
-      const z = cz + (rand() - 0.5) * 0.45
-      const lx = (rand() - 0.5) * 0.25
-      const lz = (rand() - 0.5) * 0.25
-      const blade = new THREE.Mesh(reedGeo, reed)
-      blade.position.set(x + lx * h * 0.5, h / 2, z + lz * h * 0.5)
-      blade.scale.set(1, h, 1)
-      blade.rotation.set(lz, 0, -lx)
-      garden.add(blade)
-      if (i % 2 === 0) {
-        const cat = new THREE.Mesh(headGeo, head)
-        cat.position.set(x + lx * h * 0.82, h * 0.82, z + lz * h * 0.82)
-        cat.rotation.set(lz, 0, -lx)
-        garden.add(cat)
-      }
-    }
-  }
 
   // ---------- Hammock ----------
   const hammock = new THREE.Group()
@@ -386,8 +221,7 @@ export function buildFeatures(k: Kit, garden: THREE.Group, bark: THREE.Material)
       if (!n) flicker = 0
     },
     update(t: number) {
-      // The water's sheen drifts across it, and the hammock rocks a little on its hooks.
-      ripples.offset.set(t * 0.012, t * 0.008)
+      // The hammock rocks a little on its hooks.
       hammock.rotation.x = Math.sin(t * 0.55) * 0.035
       if (!night) return
       flicker = Math.sin(t * 11) * 0.5 + Math.sin(t * 17.3 + 1) * 0.3 + Math.sin(t * 5.1) * 0.2

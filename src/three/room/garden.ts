@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import type { Kit } from './kit'
 import { grassTexture, woodTexture } from './textures'
 import { buildFeatures } from './features'
-import { DECK, FIRE, GARDEN, TREES, inPond } from './layout'
+import { buildPond } from './pond'
+import { DECK, FIRE, GARDEN, POND_BANK, TREES, inPond, pondPoint } from './layout'
 
 export interface VineSpot {
   pos: [number, number, number]
@@ -32,6 +33,35 @@ export function buildGarden(k: Kit) {
   const lawn = tbox(X1 - X0, 0.2, Z1 - Z0, [soil, soil, grass, soil, soil, soil], (X0 + X1) / 2, -0.13, (Z0 + Z1) / 2, 3, garden)
   lawn.name = 'Lawn'
   lawn.castShadow = false
+  // The pond sits in a hole in the lawn, so its water can lie below the grass: the box keeps only its sides and
+  // underside, and the top is a sheet with the pond's outline cut out (same texture mapping as the box top).
+  lawn.geometry.groups.splice(2, 1)
+  {
+    const shape = new THREE.Shape()
+    shape.moveTo(X0, -Z0)
+    shape.lineTo(X1, -Z0)
+    shape.lineTo(X1, -Z1)
+    shape.lineTo(X0, -Z1)
+    shape.closePath()
+    const hole = new THREE.Path()
+    for (let i = 0; i < 96; i++) {
+      const [x, z] = pondPoint((i / 96) * Math.PI * 2, POND_BANK)
+      if (i === 0) hole.moveTo(x, -z)
+      else hole.lineTo(x, -z)
+    }
+    hole.closePath()
+    shape.holes.push(hole)
+    const top = track(new THREE.ShapeGeometry(shape))
+    top.rotateX(-Math.PI / 2) // shape y is -z, so this lays it flat facing up
+    const p = top.attributes.position
+    const uv = top.attributes.uv
+    for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / 3, p.getZ(i) / 3)
+    const sheet = new THREE.Mesh(top, grass)
+    sheet.name = 'Lawn top'
+    sheet.position.y = -0.03
+    sheet.receiveShadow = true
+    garden.add(sheet)
+  }
 
   // Blades of grass: three crossed slivers per tuft, lit like the ground under them.
   const tuft = track(new THREE.BufferGeometry())
@@ -60,7 +90,7 @@ export function buildGarden(k: Kit) {
   for (let i = 0; i < TUFTS; i++) {
     const x = X0 + 0.9 + rand() * (X1 - X0 - 1.0)
     const z = Z0 + 0.9 + rand() * (Z1 - Z0 - 1.1)
-    if ((x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) || inPond(x, z, 0.45) || Math.hypot(x - FIRE.x, z - FIRE.z) < 1.0) {
+    if ((x > DECK.x0 - 0.05 && z > DECK.z0 - 0.05 && z < DECK.z1 + 0.05) || inPond(x, z, 0.6) || Math.hypot(x - FIRE.x, z - FIRE.z) < 1.0) {
       blades.setMatrixAt(i, m4.makeScale(0, 0, 0)) // under the deck, in the pond or in the fire pit: none
       continue
     }
@@ -202,7 +232,7 @@ export function buildGarden(k: Kit) {
   // ---------- Stepping stones from the door ----------
   const stone = mat('#a8a39a', { roughness: 0.95 })
   const stoneGeo = track(new THREE.CylinderGeometry(0.42, 0.46, 0.06, 9))
-  // From the deck's step, round the big tree, to the shed.
+  // From the deck's step, round the big tree and past the pond's west side, to the shed.
   const path: [number, number][] = [
     [-7.95, 2.7],
     [-8.75, 2.4],
@@ -214,8 +244,8 @@ export function buildGarden(k: Kit) {
     [-11.85, -1.7],
     [-11.9, -2.7],
   ]
-  // Branches: to the fire pit, and to a flat stone at the pond's edge.
-  path.push([-11.3, 2.65], [-12.2, 2.95], [-12.7, -1.2], [-13.5, -0.78])
+  // Branches: to the fire pit, and down the lawn's middle to the flat stone at the pond's south shore.
+  path.push([-11.3, 2.65], [-12.2, 2.95], [-8.7, 1.35], [-8.35, 0.4], [-8.1, -0.45])
   path.forEach(([x, z], i) => {
     const s = new THREE.Mesh(stoneGeo, stone)
     s.position.set(x, 0, z)
@@ -324,6 +354,34 @@ export function buildGarden(k: Kit) {
 
   // ---------- The far end: pond, hammock, fire pit ----------
   const features = buildFeatures(k, garden, bark)
+  const pond = buildPond(k, garden)
+
+  // The old pond's corner of the far garden is now a small meadow: two shrubs and wildflowers in long grass.
+  bush(-16.7, 0.55, -3.9, 0.95, 0.75, 0.9, 420, 0.17, LEAF_GREENS)
+  bush(-14.0, 0.45, -4.7, 0.7, 0.6, 0.7, 260, 0.16, LEAF_GREENS)
+  {
+    const FLOWERS = 190
+    const stemGeo = track(new THREE.CylinderGeometry(0.004, 0.006, 1, 3))
+    stemGeo.translate(0, 0.5, 0)
+    const stems = new THREE.InstancedMesh(stemGeo, mat('#5d8a3e', { roughness: 1 }), FLOWERS)
+    const headGeo = track(new THREE.IcosahedronGeometry(0.035, 0))
+    const heads = new THREE.InstancedMesh(headGeo, mat('#ffffff', { roughness: 0.8 }), FLOWERS)
+    const palette = ['#f6f1e4', '#f2cf4a', '#e86f9a', '#b79ae8', '#ffffff', '#f09a52']
+    for (let i = 0; i < FLOWERS; i++) {
+      // Thicker towards the middle of the patch.
+      const x = -15.6 + (rand() + rand() - 1) * 2.4
+      const z = -2.6 + (rand() + rand() - 1) * 2.3
+      const h = 0.22 + rand() * 0.28
+      m4.compose(new THREE.Vector3(x, -0.03, z), q.setFromAxisAngle(UP, rand() * 6), new THREE.Vector3(1, h, 1))
+      stems.setMatrixAt(i, m4)
+      m4.compose(new THREE.Vector3(x, -0.03 + h, z), q, new THREE.Vector3(1, 0.8, 1))
+      heads.setMatrixAt(i, m4)
+      heads.setColorAt(i, col.set(palette[Math.floor(rand() * palette.length)]))
+    }
+    stems.name = 'Wildflower stems'
+    heads.name = 'Wildflowers'
+    garden.add(stems, heads)
+  }
 
   // Where vines hang: over the wall top, under the pergola, and by the window.
   const vineSpots: VineSpot[] = [
@@ -339,6 +397,7 @@ export function buildGarden(k: Kit) {
     root: garden,
     /** Parts of the garden that move on their own (trees sway): they must not be merged with the rest. */
     moving: () => [drawnTrees, ...crowns, ...features.moving],
+    pond,
     vineSpots,
     /** Swap the stand-in grass blades and trees for the real models (garden.glb). */
     useModels(root: THREE.Object3D) {
@@ -350,7 +409,7 @@ export function buildGarden(k: Kit) {
         return material
       }
       // Longer grass along the hedges and the fence, where a mower would not reach. The lawn keeps its own blades.
-      const scatter = (name: string, count: number, height: number) => {
+      const scatter = (name: string, count: number, height: number, spot?: () => [number, number]) => {
         const src = root.getObjectByName(name) as THREE.Mesh | undefined
         if (!src || !src.isMesh) return
         src.geometry.computeBoundingBox()
@@ -365,9 +424,10 @@ export function buildGarden(k: Kit) {
           const edge = rand()
           const along = rand()
           const off = rand() * 0.45
-          const x = edge < 0.45 ? X0 + 0.95 + off : X0 + 1.0 + along * (X1 - X0 - 1.4)
-          const z = edge < 0.45 ? Z0 + 1.0 + along * (Z1 - Z0 - 1.4) : edge < 0.7 ? Z0 + 0.95 + off : Z1 - 0.5 - off
-          if (inPond(x, z, 0.5)) {
+          let x = edge < 0.45 ? X0 + 0.95 + off : X0 + 1.0 + along * (X1 - X0 - 1.4)
+          let z = edge < 0.45 ? Z0 + 1.0 + along * (Z1 - Z0 - 1.4) : edge < 0.7 ? Z0 + 0.95 + off : Z1 - 0.5 - off
+          if (spot) [x, z] = spot()
+          if (inPond(x, z, 0.65)) {
             inst.setMatrixAt(i, m4.makeScale(0, 0, 0))
             continue
           }
@@ -377,6 +437,12 @@ export function buildGarden(k: Kit) {
         garden.add(inst)
       }
       scatter('GrassClump', 390, 0.42)
+      // Longer grass round the pond's bank (the water's edge is left to the reeds) and through the meadow in its old corner.
+      scatter('GrassClump', 70, 0.36, () => {
+        const t = rand() * Math.PI * 2
+        return [...pondPoint(t, 1.42 + rand() * 0.5)] as [number, number]
+      })
+      scatter('GrassClump', 60, 0.46, () => [-15.6 + (rand() - 0.5) * 4.6, -2.6 + (rand() - 0.5) * 4.4])
       // Trees: one of the two models at each spot, sized to the stand-in it replaces.
       const kinds = ['TreeA', 'TreeB'].map((n) => root.getObjectByName(n)).filter((o): o is THREE.Object3D => !!o)
       if (kinds.length) {
@@ -404,9 +470,11 @@ export function buildGarden(k: Kit) {
       postLight.intensity = night ? 16 : 0
       lanternMat.emissiveIntensity = night ? 2.4 : 0
       features.setNight(night)
+      pond.setNight(night)
     },
     update(t: number) {
       features.update(t)
+      pond.update(t)
       crowns.forEach((c, i) => {
         c.rotation.z = Math.sin(t * 0.7 + i * 2) * 0.008
         c.rotation.x = Math.cos(t * 0.5 + i) * 0.006

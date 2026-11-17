@@ -24,10 +24,23 @@ export const TREES: [number, number, number, number][] = [
   [-17.0, 4.6, 4.6, 1.0], // the other
 ]
 
-/** The pond in the back corner of the far garden: an irregular outline, a x b around its centre. */
-export const POND = { x: -15.3, z: -2.4, a: 2.2, b: 1.6 }
-/** How far out the pond's shore is in direction theta, as a multiple of a and b (so it is not an ellipse). */
-export const pondShore = (theta: number) => 1 + 0.1 * Math.sin(2 * theta + 1) + 0.07 * Math.sin(3 * theta + 2) + 0.04 * Math.sin(5 * theta)
+/**
+ * The pond where the greenhouse used to be, seen from the room's window and the garden stand. a x b are its
+ * semi-axes in room units (1.5 units = 1 m), so it is roughly 5 x 3.5 units across before the outline wanders.
+ */
+export const POND = { x: -8.0, z: -3.0, a: 2.4, b: 1.7 }
+/** The water's surface, a hand's width below the lawn (which sits at -0.03). */
+export const POND_WATER_Y = -0.17
+/** Where the bank meets the lawn, as a multiple of the shoreline: the lawn has a hole this big for the pond. */
+export const POND_BANK = 1.17
+/** How far out the shoreline is in direction theta, as a multiple of a and b (so it is not an ellipse; the west lobe is pinched in, away from the shed). */
+export const pondShore = (theta: number) =>
+  1 + 0.08 * Math.sin(2 * theta + 1) + 0.06 * Math.sin(3 * theta + 2) + 0.035 * Math.sin(5 * theta) + 0.025 * Math.sin(7 * theta + 0.5) - 0.08 * Math.max(0, -Math.cos(theta))
+/** The point on the shoreline (scaled in or out from the centre) in direction theta. */
+export const pondPoint = (theta: number, scale = 1) => {
+  const f = pondShore(theta) * scale
+  return [POND.x + Math.cos(theta) * POND.a * f, POND.z + Math.sin(theta) * POND.b * f] as const
+}
 /** Is the point in the pond (grown by `pad` room units)? */
 export function inPond(x: number, z: number, pad = 0) {
   const dx = (x - POND.x) / POND.a
@@ -80,9 +93,6 @@ export const BLOCKERS: { rects: Rect[]; circles: Circle[] } = {
     { x: READING.table.x, z: READING.table.z, r: 0.45 }, // side table with the lamp
     { x: -3.38, z: 3.72, r: 0.35 }, // pothos
     ...TREES.map(([x, z]) => ({ x, z, r: 0.35 })),
-    { x: POND.x - 1.1, z: POND.z, r: 1.7 }, // pond (three circles cover its shape)
-    { x: POND.x, z: POND.z, r: 1.95 },
-    { x: POND.x + 1.1, z: POND.z, r: 1.65 },
     { x: FIRE.x, z: FIRE.z, r: 0.95 }, // fire pit
     ...FIRE.seats.map((_, i) => ({ ...fireSeatAt(i), r: 0.32 })),
     { x: -6.5, z: 0.5, r: 0.2 }, // lamp post
@@ -106,6 +116,7 @@ const inRect = (r: Rect, x: number, z: number, pad = 0) => x > r.x0 - pad && x <
 export function isFree(x: number, z: number, r = 0.28) {
   if (!WALKABLE.some((w) => inRect(w, x, z))) return false
   if (BLOCKERS.rects.some((b) => inRect(b, x, z, r))) return false
+  if (inPond(x, z, r + 0.2)) return false // the pond is not walkable (nor the dog's), and so is a little of its bank
   return !BLOCKERS.circles.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + r)
 }
 

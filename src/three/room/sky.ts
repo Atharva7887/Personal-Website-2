@@ -142,7 +142,7 @@ export function buildSky(radius: number) {
       uniforms.time.value = t
     },
     /** Keeps the dome centred on the camera so it never gets closer or clipped. */
-    follow(camera: THREE.Camera) {
+    follow(camera: THREE.Object3D) {
       mesh.position.copy(camera.position)
     },
     dispose() {
