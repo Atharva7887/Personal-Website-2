@@ -79,15 +79,22 @@ const noRaycast = () => {}
 
 export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { reduced: boolean; night: boolean }): RoomHandle {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
+  const BASE_RATIO = Math.min(window.devicePixelRatio, 1.75)
+  renderer.setPixelRatio(BASE_RATIO)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   // The shadow map is redrawn only when something that casts a shadow changes (models arriving, the sun
   // moving, the door swinging, a wall stepping aside), not every frame: it is by far the biggest cost.
   renderer.shadowMap.autoUpdate = false
   renderer.shadowMap.needsUpdate = true
+  // With reduced motion the room is drawn only when something changed; this marks that it did.
+  let dirty = true
+  const invalidate = () => {
+    dirty = true
+  }
   const refreshShadows = () => {
     renderer.shadowMap.needsUpdate = true
+    dirty = true
   }
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -95,7 +102,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
   // Dev only: lets the headless checks read where the camera is.
-  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene, __studioRenderer: renderer })
+  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene, __studioRenderer: renderer, __studioQuality: () => ({ level, pixelRatio: renderer.getPixelRatio(), shadow: sun.shadow.mapSize.x }) })
   const kit = makeKit(scene)
   const { track, mat, mesh, box, tbox, cyl } = kit
 
@@ -322,6 +329,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       art.map = t
       art.color.set('#ffffff')
       art.needsUpdate = true
+      invalidate()
     })
     framed(gallery, art, -3.1 + (i % 3) * 1.42, i < 3 ? 4.02 : 2.98, 1.14, 0.6, i % 2 ? frameBlack : frameOak)
   })
@@ -820,6 +828,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   }
   const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
     draco.dispose()
+    qualityFrom = performance.now() + 2500
     trimShadowCasters()
     mergeRoom()
     refreshShadows()
@@ -1170,11 +1179,63 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const still = new Set<StopId>(['garden', 'window', 'door', 'gallery'])
   let last = performance.now()
   let raf = 0
+  let onScreen = true
+
+  // Adaptive quality. If frames take too long for a couple of seconds, drop a notch: first the pixel ratio
+  // (1.75 -> 1.25 -> 1), then the shadow map (4096 -> 2048 -> 1024). Frame time is the time between frames,
+  // so on a 60 Hz screen this can only say "too slow", never "plenty of room"; it climbs back up only on
+  // fast screens, at most once every 5 s, and stops climbing for good if that makes it slow again.
+  const ratios = [BASE_RATIO, 1.25, 1].filter((v, i, a) => (i === 0 ? true : v < Math.min(...a.slice(0, i))))
+  const shadowSizes = [shadowSize, 2048, 1024].filter((v, i, a) => (i === 0 ? true : v < Math.min(...a.slice(0, i))))
+  const maxLevel = ratios.length - 1 + shadowSizes.length - 1
+  let level = 0
+  const applyLevel = () => {
+    const ratio = ratios[Math.min(level, ratios.length - 1)]
+    if (renderer.getPixelRatio() !== ratio) renderer.setPixelRatio(ratio)
+    const size = shadowSizes[Math.max(0, level - (ratios.length - 1))]
+    if (sun.shadow.mapSize.x !== size) {
+      sun.shadow.mapSize.set(size, size)
+      sun.shadow.map?.dispose()
+      sun.shadow.map = null
+    }
+    refreshShadows()
+  }
+  const WINDOW = 2000
+  const recent: [number, number][] = []
+  let qualityFrom = Infinity // set once the models are in: loading hitches are not a trend
+  let lastChange = 0
+  let lastUp = -Infinity
+  let noMoreUp = false
+  const adapt = (now: number, delta: number) => {
+    if (opts.reduced || now < qualityFrom) return
+    if (delta > 250) {
+      recent.length = 0 // a stall (switching tabs, a garbage collection), not a trend
+      return
+    }
+    recent.push([now, delta])
+    while (recent.length && now - recent[0][0] > WINDOW) recent.shift()
+    if (recent.length < 20 || now - recent[0][0] < WINDOW - 200) return
+    const sorted = recent.map((w) => w[1]).sort((a, b) => a - b)
+    const median = sorted[sorted.length >> 1]
+    if (median > 20 && level < maxLevel) {
+      level++
+      if (now - lastUp < 10000) noMoreUp = true
+    } else if (median < 10 && level > 0 && !noMoreUp && now - lastChange >= 5000) {
+      level--
+      lastUp = now
+    } else return
+    lastChange = now
+    recent.length = 0
+    applyLevel()
+  }
+  const camSeen = new THREE.Vector3(1e9, 0, 0)
+  const quatSeen = new THREE.Quaternion()
   let lastShadowKey = -1
   const ledColor = new THREE.Color()
 
   const loop = () => {
     const now = performance.now()
+    adapt(now, now - last)
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     const t = now / 1000
@@ -1240,12 +1301,17 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     for (const [id, g] of groups) {
       if (still.has(id)) continue
       const target = hovered === id ? 1 : 0
-      const h = (hoverScale.get(id) ?? 0) + (target - (hoverScale.get(id) ?? 0)) * k * 1.5
+      let h = (hoverScale.get(id) ?? 0) + (target - (hoverScale.get(id) ?? 0)) * k * 1.5
+      if (h !== target) {
+        dirty = true
+        if (Math.abs(target - h) < 0.002) h = target
+      }
       hoverScale.set(id, h)
       let p = pop.get(id) ?? 0
       if (p > 0) {
         p = Math.max(0, p - dt * 2.5)
         pop.set(id, p)
+        dirty = true
       }
       const squash = Math.sin(p * Math.PI * 2) * p * 0.06
       const pv = pivots.get(id)!
@@ -1276,19 +1342,42 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       yard.update(t, dt, camera.position)
     }
 
-    renderer.render(scene, camera)
+    // The camera moved (dragging, walking, a flight): that is a change too.
+    // (Not exact equality: the controls recompute the pose each frame, and rounding noise is not movement.)
+    if (camSeen.distanceToSquared(camera.position) > 1e-8 || quatSeen.angleTo(camera.quaternion) > 1e-5) {
+      camSeen.copy(camera.position)
+      quatSeen.copy(camera.quaternion)
+      dirty = true
+    }
+    // Normally the room is alive (sway, steam, sky), so it draws every frame. With reduced motion nothing
+    // moves by itself, so it draws only after something changed.
+    if (!opts.reduced || dirty) {
+      renderer.render(scene, camera)
+      dirty = false
+    }
     raf = requestAnimationFrame(loop)
   }
   raf = requestAnimationFrame(loop)
 
-  const onVis = () => {
-    cancelAnimationFrame(raf)
-    if (!document.hidden) {
+  // Draw nothing while the tab is hidden or the canvas is scrolled out of view.
+  const syncRunning = () => {
+    const want = !document.hidden && onScreen
+    if (want && !raf) {
       last = performance.now()
+      recent.length = 0
+      dirty = true
       raf = requestAnimationFrame(loop)
+    } else if (!want && raf) {
+      cancelAnimationFrame(raf)
+      raf = 0
     }
   }
-  document.addEventListener('visibilitychange', onVis)
+  const io = new IntersectionObserver(([entry]) => {
+    onScreen = entry.isIntersecting
+    syncRunning()
+  })
+  io.observe(canvas)
+  document.addEventListener('visibilitychange', syncRunning)
 
   return {
     scene,
@@ -1313,7 +1402,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       canvas.removeEventListener('wheel', onZoomWheel, { capture: true })
       canvas.removeEventListener('pointerdown', onZoomDown, { capture: true })
       controls.dispose()
-      document.removeEventListener('visibilitychange', onVis)
+      document.removeEventListener('visibilitychange', syncRunning)
+      io.disconnect()
       loaded.forEach(disposeTree)
       disposeTree(chair) // moved out of its model, so not covered above
       kit.dispose()
