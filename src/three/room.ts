@@ -87,7 +87,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
   // Dev only: lets the headless checks read where the camera is.
-  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene })
+  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene, __studioRenderer: renderer })
   const kit = makeKit(scene)
   const { track, mat, mesh, box, tbox, cyl } = kit
 
@@ -100,11 +100,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
 
   // Interactive groups
   const groups = new Map<StopId, THREE.Group>()
-  const group = (id: StopId) => {
+  const group = (id: StopId, parent: THREE.Object3D = scene) => {
     const g = new THREE.Group()
     g.userData.id = id
     g.name = id.charAt(0).toUpperCase() + id.slice(1)
-    scene.add(g)
+    parent.add(g)
     groups.set(id, g)
     return g
   }
@@ -240,7 +240,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(gpuLight)
 
   // ---------- Phone (Unhaze) ----------
-  const phone = group('phone')
+  const phone = group('phone', desk) // sits on the desk, so it follows the desk's lift and squash
   const PHX = -0.42
   const PHZ = -2.92
   const phoneBody = mesh(new THREE.BoxGeometry(0.26, 0.025, 0.52), mat('#16181f', { roughness: 0.3, metalness: 0.6 }), PHX, DESK_Y + 0.0125, PHZ, phone)
@@ -250,7 +250,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   phoneScreen.castShadow = false
 
   // ---------- Mug with steam ----------
-  const mug = group('mug')
+  const mug = group('mug', desk)
   const MUG: [number, number, number] = [1.02, DESK_Y, -2.62]
   const mugFallback = new THREE.Group()
   mug.add(mugFallback)
@@ -281,7 +281,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const steamMat = track(new THREE.PointsMaterial({ color: '#ffffff', size: 0.05, transparent: true, opacity: 0.4, depthWrite: false }))
   const steam = new THREE.Points(steamGeo, steamMat)
   steam.name = 'Steam'
-  scene.add(steam)
+  mug.add(steam) // rises from the cup, so it follows the cup (and the desk under it)
 
   // ---------- Framed pictures ----------
   const frameBlack = mat('#15161b', { roughness: 0.4 })
@@ -1075,6 +1075,42 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   canvas.addEventListener('pointerup', onUp)
 
 
+  // Lift and squash pivot at the bottom-centre of what a group holds, so a squashed thing stays on its
+  // spot instead of sliding towards the world origin. Measured in the group's own space, and again once
+  // the models are in (before that, only the click area is there to measure).
+  const pivots = new Map<StopId, THREE.Vector3>()
+  const measureBox = new THREE.Box3()
+  const partBox = new THREE.Box3()
+  const toLocal = new THREE.Matrix4()
+  const measurePivots = () => {
+    for (const [id, g] of groups) {
+      const keepP = g.position.clone()
+      const keepS = g.scale.clone()
+      g.position.set(0, 0, 0)
+      g.scale.set(1, 1, 1)
+      g.updateMatrixWorld(true)
+      toLocal.copy(g.matrixWorld).invert()
+      const grow = (hidden: boolean) =>
+        g.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh || m.isInstancedMesh || m.visible === hidden) return
+          if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+          measureBox.union(partBox.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld.clone().premultiply(toLocal)))
+        })
+      measureBox.makeEmpty()
+      grow(false)
+      if (measureBox.isEmpty()) grow(true) // only the invisible click area so far
+      const pv = pivots.get(id) ?? new THREE.Vector3()
+      if (measureBox.isEmpty()) pv.set(0, 0, 0)
+      else pv.set((measureBox.min.x + measureBox.max.x) / 2, measureBox.min.y, (measureBox.min.z + measureBox.max.z) / 2)
+      pivots.set(id, pv)
+      g.position.copy(keepP)
+      g.scale.copy(keepS)
+    }
+  }
+  measurePivots()
+  ready.then(measurePivots)
+
   const pop = new Map<StopId, number>()
   const hoverScale = new Map<StopId, number>()
   // Big, fixed things (the garden, the window, the door) only nudge on hover; they don't bounce.
@@ -1149,8 +1185,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         pop.set(id, p)
       }
       const squash = Math.sin(p * Math.PI * 2) * p * 0.06
-      g.position.y = h * 0.05
-      g.scale.set(1 + squash, 1 - squash, 1 + squash)
+      const pv = pivots.get(id)!
+      const sx = 1 + squash
+      const sy = 1 - squash
+      g.scale.set(sx, sy, sx)
+      g.position.set(pv.x * (1 - sx), pv.y * (1 - sy) + h * 0.05, pv.z * (1 - sx))
     }
 
     if (!opts.reduced) {
