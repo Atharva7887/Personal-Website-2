@@ -150,6 +150,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
     showNeighbour(viewer: THREE.Vector3) {
       nb.visible = viewer.z > NEIGHBOUR.z - NEIGHBOUR.d / 2 - 0.5
     },
+    neighbourVisible: () => nb.visible,
     setNight(night: boolean) {
       lit.emissiveIntensity = night ? 1.6 : 0
       porchMat.emissiveIntensity = night ? 2.2 : 0
@@ -214,7 +215,24 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
       kit.mesh(new THREE.CapsuleGeometry(0.055, 0.34, 4, 8), coat, 0, -0.24, 0, leg)
       legs.push(leg)
     }
-    root.traverse((o) => ((o as THREE.Mesh).castShadow = true))
+    // The dog moves, and the shadow map is only redrawn when the room changes, so it casts a soft blob
+    // on the lawn instead of a real shadow.
+    root.traverse((o) => ((o as THREE.Mesh).castShadow = false))
+    const blobCanvas = document.createElement('canvas')
+    blobCanvas.width = blobCanvas.height = 64
+    const bc = blobCanvas.getContext('2d')!
+    const grad = bc.createRadialGradient(32, 32, 2, 32, 32, 32)
+    grad.addColorStop(0, 'rgba(0,0,0,0.55)')
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.25)')
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    bc.fillStyle = grad
+    bc.fillRect(0, 0, 64, 64)
+    const blobMat = kit.track(new THREE.MeshBasicMaterial({ map: kit.track(new THREE.CanvasTexture(blobCanvas)), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }))
+    const blob = new THREE.Mesh(kit.track(new THREE.PlaneGeometry(1.5, 1.9)), blobMat)
+    blob.rotation.x = -Math.PI / 2
+    blob.position.set(0, 0.015, -0.05)
+    blob.renderOrder = 1
+    root.add(blob)
     root.position.set(-9.2, -0.03, 3.6)
 
     // Behaviour
@@ -313,6 +331,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
         hopT = Math.max(0, hopT - dt * 2.2)
         root.position.y = -0.03 + Math.sin((1 - hopT) * Math.PI) * 0.35
       } else root.position.y = -0.03
+      blob.position.y = 0.015 - (root.position.y + 0.03) // stays on the grass while the dog hops
     }
     return {
       root,

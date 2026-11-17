@@ -81,7 +81,8 @@ export function buildGarden(k: Kit) {
   const tmp = new THREE.Vector3()
   const foliage = (samples: Sample[], size: number, palette: string[], parent: THREE.Object3D = garden) => {
     const inst = new THREE.InstancedMesh(leafGeo, leafMat, samples.length)
-    inst.castShadow = true
+    // Leaves receive shadow but do not cast it: thousands of slivers cost a lot in the shadow pass and
+    // the dark core under them already gives the mass its shadow.
     inst.receiveShadow = true
     samples.forEach(({ p, n }, i) => {
       const zAxis = n.clone().add(tmp.set(rand() - 0.5, rand() - 0.5, rand() - 0.5).multiplyScalar(0.9)).normalize()
@@ -255,7 +256,7 @@ export function buildGarden(k: Kit) {
     flowers.setMatrixAt(i, m4)
     flowers.setColorAt(i, col.set(petals[Math.floor(rand() * petals.length)]))
   }
-  flowers.castShadow = true
+  flowers.castShadow = false // tiny: not worth a place in the shadow pass
   garden.add(flowers)
 
   // ---------- Pots by the door ----------

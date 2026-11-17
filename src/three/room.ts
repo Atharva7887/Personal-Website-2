@@ -81,6 +81,13 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
+  // The shadow map is redrawn only when something that casts a shadow changes (models arriving, the sun
+  // moving, the door swinging, a wall stepping aside), not every frame: it is by far the biggest cost.
+  renderer.shadowMap.autoUpdate = false
+  renderer.shadowMap.needsUpdate = true
+  const refreshShadows = () => {
+    renderer.shadowMap.needsUpdate = true
+  }
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.outputColorSpace = THREE.SRGBColorSpace
 
@@ -496,9 +503,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   shade.castShadow = false
   const lampLight = new THREE.PointLight('#ffb27a', 0, 8, 1.6)
   lampLight.position.set(-2.9, 1.9, -0.5)
-  lampLight.castShadow = true
-  lampLight.shadow.mapSize.set(512, 512)
-  lampLight.shadow.bias = -0.002
+  // No shadow from this lamp: a point light's shadow is six extra renders of the scene.
   scene.add(lampLight)
 
   // ---------- A place to sit: the sofa model, or a bean bag if it does not load ----------
@@ -582,6 +587,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       throw new Error('room disposed')
     }
     loaded.push(root)
+    refreshShadows()
     root.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
@@ -771,8 +777,25 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       bag.visible = true
     },
   )
+  /** Small things (a cup, a button, a pot of pens) are not worth a place in the shadow pass: turn their shadows off. */
+  const sphere = new THREE.Sphere()
+  const trimShadowCasters = () => {
+    desk.updateMatrixWorld(true)
+    scene.updateMatrixWorld(true)
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh || m.isInstancedMesh || !m.castShadow) return
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere()
+      sphere.copy(m.geometry.boundingSphere!).applyMatrix4(m.matrixWorld)
+      if (sphere.radius < 0.1) m.castShadow = false
+    })
+    // Whatever stands on the desk is just surface detail.
+    for (const g of [phone, mug]) g.traverse((o) => ((o as THREE.Mesh).castShadow = false))
+  }
   const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
     draco.dispose()
+    trimShadowCasters()
+    refreshShadows()
   })
 
   // ---------- Lights ----------
@@ -835,6 +858,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
     yard.setNight(night)
+    refreshShadows() // the sun moved
   }
   applyNight()
 
@@ -941,6 +965,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       doorAngle = doorTarget
+      refreshShadows()
       land()
     }
   }
@@ -1018,6 +1043,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const w = canvas.clientWidth || 1
     const h = canvas.clientHeight || 1
     renderer.setSize(w, h, false)
+    refreshShadows()
     camera.aspect = w / h
     // Narrow screens: widen the view so the whole room fits.
     camera.fov = w / h < 1 ? 58 : 38
@@ -1117,6 +1143,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const still = new Set<StopId>(['garden', 'window', 'door', 'gallery'])
   let last = performance.now()
   let raf = 0
+  let lastShadowKey = -1
   const ledColor = new THREE.Color()
 
   const loop = () => {
@@ -1168,9 +1195,18 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       nearWalls.visible = c.x > -4 && c.x < 3.95 && c.z > -4 && c.z < 3.95 && c.y < 5.2
     }
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
+    // A wall stepping aside changes what the sun can reach, so the shadows are drawn again.
+    const shadowKey = (backWall.visible ? 1 : 0) | (sideWall[0].visible ? 2 : 0) | (yard.neighbourVisible() ? 4 : 0)
+    if (shadowKey !== lastShadowKey) {
+      lastShadowKey = shadowKey
+      refreshShadows()
+    }
 
-    // Door eases towards open or ajar.
-    doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
+    // Door eases towards open or ajar (and its shadow with it).
+    if (Math.abs(doorTarget - doorAngle) > 0.0005) {
+      doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
+      refreshShadows()
+    }
     leaf.rotation.y = doorAngle
 
     // Hover lift and click squash (squash and stretch, follow-through).
