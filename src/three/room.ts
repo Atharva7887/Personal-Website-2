@@ -594,6 +594,17 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       if (!m.isMesh) return
       m.castShadow = m.receiveShadow = true
       m.raycast = noRaycast // clicks go to the pick boxes instead
+      // Glass that refracts (the PC's side panel) makes three draw the whole opaque scene a second time
+      // into a buffer to look through. Ordinary see-through glass looks nearly the same for half the cost.
+      for (const material of Array.isArray(m.material) ? m.material : [m.material]) {
+        const glass = material as THREE.MeshPhysicalMaterial
+        if (!glass.transmission) continue
+        glass.opacity = THREE.MathUtils.clamp(1 - glass.transmission * 0.75, 0.25, 1)
+        glass.transmission = 0
+        glass.transparent = true
+        glass.depthWrite = false
+        glass.needsUpdate = true
+      }
     })
     return root
   }
