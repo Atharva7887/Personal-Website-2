@@ -331,6 +331,9 @@ export function buildGarden(k: Kit) {
   ]
 
   return {
+    root: garden,
+    /** Parts of the garden that move on their own (trees sway): they must not be merged with the rest. */
+    moving: () => [drawnTrees, ...crowns],
     vineSpots,
     /** Swap the stand-in grass blades and trees for the real models (garden.glb). */
     useModels(root: THREE.Object3D) {

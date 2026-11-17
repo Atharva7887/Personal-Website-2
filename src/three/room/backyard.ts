@@ -146,6 +146,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
 
   return {
     dog: dog.root,
+    neighbour: nb,
     /** The neighbour's house steps aside when the camera swings round behind it (like the room's back wall). */
     showNeighbour(viewer: THREE.Vector3) {
       nb.visible = viewer.z > NEIGHBOUR.z - NEIGHBOUR.d / 2 - 0.5

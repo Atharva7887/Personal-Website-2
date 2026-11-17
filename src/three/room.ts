@@ -10,6 +10,7 @@ import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
 import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
+import { dedupeMaterials, mergeStatic } from './room/merge'
 import { GARDEN, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
@@ -792,9 +793,24 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     // Whatever stands on the desk is just surface detail.
     for (const g of [phone, mug]) g.traverse((o) => ((o as THREE.Mesh).castShadow = false))
   }
+  /**
+   * One draw call per material instead of one per piece. Each of these is a group that moves, hides or
+   * hovers as a whole, so its pieces are merged inside it; things that move on their own (the door leaf,
+   * swaying plants and trees, the dog) and the walls that picking relies on are left alone.
+   */
+  const mergeRoom = () => {
+    dedupeMaterials(loaded)
+    const stats = mergeStatic(
+      [...groups.values(), sideboard, outside.root, yardRoot, yard.neighbour],
+      [leaf, ...swaying, ...outside.moving(), yard.dog, ...occluders],
+      (g) => track(g),
+    )
+    if (import.meta.env.DEV) console.info(`Studio room: merged ${stats.before} meshes into ${stats.after}`)
+  }
   const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
     draco.dispose()
     trimShadowCasters()
+    mergeRoom()
     refreshShadows()
   })
 
