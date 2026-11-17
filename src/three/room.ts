@@ -8,7 +8,6 @@ import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
 import { buildCorner } from './room/corner'
 import { createModelLoader, restoreModel } from './room/assets'
-import { accelerateRaycasts, releaseRaycasts } from './room/picking'
 import { dedupeMaterials, mergeStatic } from './room/merge'
 import { FIRE, GARDEN, READING, ROOM, fireSeatAt, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
@@ -553,9 +552,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // The lawn is the garden's click target.
   pickBox(13.4, 0.1, 12, -11.5, 0.02, 0.4, garden)
 
-  // What a pointer ray tests: the click groups and the walls and floor that stop a click.
-  const pickable = [...groups.values(), ...occluders]
-
   // ---------- Models ----------
   const loaded: THREE.Object3D[] = []
   const vines: THREE.Object3D[] = []
@@ -843,9 +839,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     trimShadowCasters()
     mergeRoom()
     refreshShadows()
-    // Last, once the merged meshes are final: what a pointer ray tests is then built for it.
-    pickable.forEach(accelerateRaycasts)
-    accelerateRaycasts(yard.dog)
   })
 
   // ---------- Lights ----------
@@ -1120,6 +1113,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   ro.observe(canvas)
 
   const ray = new THREE.Raycaster()
+  const pickable = [...groups.values(), ...occluders]
   const ndc = new THREE.Vector2()
   let hovered: StopId | null = null
   const pick = (e: PointerEvent): StopId | null => {
@@ -1434,8 +1428,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       sky.dispose()
       ground.dispose()
       walker.dispose()
-      pickable.forEach(releaseRaycasts)
-      releaseRaycasts(yard.dog)
       renderer.dispose()
     },
   }
