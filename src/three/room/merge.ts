@@ -59,7 +59,7 @@ export function mergeStatic(containers: THREE.Object3D[], skip: THREE.Object3D[]
           visit(child)
           continue
         }
-        if (m.isInstancedMesh || (m as THREE.SkinnedMesh).isSkinnedMesh || m.children.length || m.userData.noMerge) continue
+        if ((m as THREE.InstancedMesh).isInstancedMesh || (m as THREE.SkinnedMesh).isSkinnedMesh || m.children.length || m.userData.noMerge) continue
         if (m.matrixWorld.determinant() <= 0) continue // mirrored: the winding would flip
         const geo = m.geometry
         if (!geo.attributes.position) continue

@@ -20,7 +20,7 @@ export function makeKit(scene: THREE.Scene) {
     color +
     Object.entries(extra)
       .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([k, v]) => `|${k}=${v && v.isTexture ? v.uuid : v && v.isColor ? v.getHexString() : String(v)}`) // textures by identity, never serialised
+      .map(([k, v]: [string, any]) => `|${k}=${v && v.isTexture ? v.uuid : v && v.isColor ? v.getHexString() : String(v)}`) // textures by identity, never serialised
       .join('')
   const mat = (color: string, extra: THREE.MeshStandardMaterialParameters = {}, opts: { unique?: boolean } = {}) => {
     if (opts.unique) return track(new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...extra }))

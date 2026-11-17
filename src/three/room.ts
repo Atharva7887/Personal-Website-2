@@ -804,7 +804,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     scene.updateMatrixWorld(true)
     scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (!m.isMesh || m.isInstancedMesh || !m.castShadow) return
+      if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || !m.castShadow) return
       if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere()
       sphere.copy(m.geometry.boundingSphere!).applyMatrix4(m.matrixWorld)
       if (sphere.radius < 0.1) m.castShadow = false
@@ -1155,7 +1155,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       const grow = (hidden: boolean) =>
         g.traverse((o) => {
           const m = o as THREE.Mesh
-          if (!m.isMesh || m.isInstancedMesh || m.visible === hidden) return
+          if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || m.visible === hidden) return
           if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
           measureBox.union(partBox.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld.clone().premultiply(toLocal)))
         })
