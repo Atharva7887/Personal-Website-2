@@ -43,10 +43,10 @@ export const FIRE = {
   x: -14.8,
   z: 1.9,
   seats: [
-    { angle: 0.35, r: 1.6, kind: 'stump' as const },
-    { angle: 1.95, r: 1.6, kind: 'stump' as const },
-    { angle: 3.6, r: 1.75, kind: 'log' as const },
-    { angle: 5.2, r: 1.75, kind: 'log' as const },
+    { angle: 0.35, r: 2.0, kind: 'stump' as const },
+    { angle: 1.95, r: 2.0, kind: 'stump' as const },
+    { angle: 3.6, r: 2.1, kind: 'log' as const },
+    { angle: 5.2, r: 2.1, kind: 'log' as const },
   ],
 }
 /** The two stumps you can sit on, as spots on the ground (the first two seats). */

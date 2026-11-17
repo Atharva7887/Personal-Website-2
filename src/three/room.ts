@@ -1040,7 +1040,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       // The two stumps by the fire, facing it.
       ...[0, 1].map((i) => {
         const { x, z } = fireSeatAt(i)
-        return { id: `fire${i}`, label: 'a stump by the fire', x, z, eyeY: 1.62, yaw: Math.atan2(FIRE.x - x, FIRE.z - z), pitch: -0.32 }
+        return { id: `fire${i}`, label: 'a stump by the fire', x, z, eyeY: 1.62, yaw: Math.atan2(FIRE.x - x, FIRE.z - z), pitch: -0.42 }
       }),
       { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.05, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
