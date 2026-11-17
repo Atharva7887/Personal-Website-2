@@ -1,7 +1,8 @@
 """Prepare the Studio room's 3D models for the web.
 
 Takes the large reference models in exports/refreences, keeps the parts the room uses,
-decimates them, shrinks their textures and writes small Draco + WebP .glb files to public/models.
+decimates them, shrinks their textures and writes plain-geometry + WebP .glb files to public/models.
+Run scripts/room-assets/compress.mjs on that folder afterwards: it adds the meshopt geometry and KTX2 textures the site loads.
 
 Usage (from the project folder, with Blender 4.2+):
     blender --background --python scripts/room-assets/prepare.py -- exports/refreences <extracted> public/models
@@ -181,7 +182,7 @@ def drop_unused_image_nodes(mat):
                 changed = True
 
 
-def export(objs, name, draco=True):
+def export(objs, name, draco=False):  # geometry is compressed afterwards, by compress.mjs (meshopt)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)

@@ -1,16 +1,13 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import dracoJs from 'three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js?url'
-import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url'
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
 import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
 import { buildCorner } from './room/corner'
+import { createModelLoader, restoreModel } from './room/assets'
 import { dedupeMaterials, mergeStatic } from './room/merge'
 import { FIRE, GARDEN, READING, ROOM, fireSeatAt, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
@@ -569,9 +566,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         material.dispose()
       }
     })
-  // The Draco decoder ships with three; it is fetched only when a model needs it.
-  const draco = new DRACOLoader().setDecoderPath({ js: dracoJs, wasm: dracoWasm })
-  const loader = new GLTFLoader().setDRACOLoader(draco)
+  const { loader, dispose: disposeLoader } = createModelLoader()
   // Load progress across every model, weighted by size (a file without a known size counts as ~0.5 MB).
   const progress = new Map<string, { loaded: number; total: number; done: boolean }>()
   const report = () => {
@@ -606,6 +601,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       disposeTree(root)
       throw new Error('room disposed')
     }
+    restoreModel(root)
     loaded.push(root)
     refreshShadows()
     root.traverse((o) => {
@@ -838,7 +834,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     if (import.meta.env.DEV) console.info(`Studio room: merged ${stats.before} meshes into ${stats.after}`)
   }
   const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
-    draco.dispose()
+    disposeLoader()
     qualityFrom = performance.now() + 2500
     trimShadowCasters()
     mergeRoom()
