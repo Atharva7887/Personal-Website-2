@@ -619,7 +619,7 @@ export function Studio() {
           ) : (
             <>
               <span className="[@media(hover:none)]:hidden">
-                {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything
+                {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything · Ctrl + / − to zoom
               </span>
               <span className="hidden [@media(hover:none)]:inline">{place ? 'Drag to look around' : 'Drag to turn the room'} · tap anything</span>
             </>

@@ -21,14 +21,14 @@ export const PLACES: Place[] = [
     id: 'room',
     label: 'Room',
     cta: 'Stand in the room',
-    stand: { pos: [2.9, 2.4, 3.4], look: [-1.0, 1.7, -2.6] },
+    stand: { pos: [4.3, 2.4, 4.3], look: [-0.5, 1.7, -2.6] },
     stops: ['window', 'desk', 'gpu', 'poster', 'gallery', 'phone', 'plant', 'shelf', 'arcade', 'door', 'mug'],
   },
   {
     id: 'garden',
     label: 'Garden',
     cta: 'Stand in the garden',
-    stand: { pos: [-6.4, 2.4, 5.4], look: [-8.2, 1.4, -2.6] },
+    stand: { pos: [-7.5, 2.4, 6.1], look: [-8.1, 0.5, -2.0] },
     stops: ['garden'],
   },
 ]

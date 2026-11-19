@@ -1,7 +1,8 @@
 """Prepare the Studio room's 3D models for the web.
 
 Takes the large reference models in exports/refreences, keeps the parts the room uses,
-decimates them, shrinks their textures and writes small Draco + WebP .glb files to public/models.
+decimates them, shrinks their textures and writes plain-geometry + WebP .glb files to public/models.
+Run scripts/room-assets/compress.mjs on that folder afterwards: it adds the meshopt geometry and KTX2 textures the site loads.
 
 Usage (from the project folder, with Blender 4.2+):
     blender --background --python scripts/room-assets/prepare.py -- exports/refreences <extracted> public/models
@@ -9,7 +10,6 @@ Usage (from the project folder, with Blender 4.2+):
 <extracted> is a folder holding four of the reference .zip archives, unzipped into these sub-folders:
     vine/        Places and elements/vine-with-branch-3d-model-free.zip
     pothos/      New ref/free-pothos-potted-plant-money-plant.zip
-    greenhouse/  New ref/greenhouse-in-the-garden-draft.zip
     zz-plant/    New ref/zz-plant-in-ceramic-pot-crafted-by-jerovdl (1).zip
     trees/       New ref/Grass and grass land/low-poly-tree-scene-free.zip
 Set ROOM_ASSETS_ONLY=prepare_plants (or any other step's name) to run one step.
@@ -181,7 +181,7 @@ def drop_unused_image_nodes(mat):
                 changed = True
 
 
-def export(objs, name, draco=True):
+def export(objs, name, draco=False):  # geometry is compressed afterwards, by compress.mjs (meshopt)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
@@ -551,48 +551,6 @@ def prepare_plants():
     export(objs, "plants.glb")
 
 
-# ---------------------------------------------------------------- greenhouse
-# From New ref/greenhouse-in-the-garden-draft.zip. Only the building, its paving, lamp and roof vine are kept:
-# the grass, bushes and trees around it are over two million triangles.
-GREENHOUSE_KEEP = {"rama", "fenster", "GL1", "GL2", "GL3", "h1", "h2", "h3", "sch1", "dwer", "dno", "lambert3", "lampada", "rama2", "kirp1", "kirp2", "kirp3", "lambert1", "vino9", "vino10", "vino11", "vino12", "setka2"}
-GREENHOUSE_WIDTH = 2.9  # metres across, paving included
-
-
-def prepare_greenhouse():
-    reset()
-    bpy.ops.wm.fbx_import(filepath=os.path.join(EXTRACTED, "greenhouse", "source", "20231011orange_d_render.fbx"))
-    short = lambda m: m.name.split("__")[-1]
-    meshes = []
-    for o in bpy.data.objects:
-        mats = [m for m in o.data.materials if m] if o.type == "MESH" else []
-        if mats and all(short(m) in GREENHOUSE_KEEP for m in mats):
-            meshes.append(o)
-    keep_only(meshes)
-    unparent(meshes)
-    for o in meshes:
-        names = {short(m) for m in o.data.materials if m}
-        n = tri_count(o)
-        if names & {"vino9", "vino10", "vino11", "vino12"}:
-            decimate(o, 0.3)
-        elif names & {"kirp1", "kirp2", "kirp3"} and n > 2000:
-            decimate(o, 0.25)
-        elif n > 1500:
-            decimate(o, 0.5)
-    for mat in bpy.data.materials:
-        name = short(mat)
-        if name == "fenster":
-            mat.name = "GreenhouseGlass"
-        elif name == "lampada":
-            mat.name = "GreenhouseLamp"
-    house = join(meshes, "Greenhouse")
-    keep_only([house])
-    smooth(house, 30)
-    lo, hi = bounds([house])
-    transform_all([house], Matrix.Scale(GREENHOUSE_WIDTH / max(hi.x - lo.x, hi.y - lo.y), 4))
-    log("Greenhouse size", [round(v, 3) for v in floor_centre(house)])
-    export([house], "greenhouse.glb")
-
-
 # ---------------------------------------------------------------- garden: trees and grass
 # "Simple grass chunks" by 3dhdscan (CC BY 4.0); two trees from New ref/Grass and grass land/low-poly-tree-scene-free.zip.
 def prepare_garden():
@@ -858,7 +816,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(TMP, exist_ok=True)
     only = os.environ.get("ROOM_ASSETS_ONLY")
-    for step in (prepare_setup, prepare_monitor, prepare_laptop, prepare_vine, prepare_gaming, prepare_plants, prepare_greenhouse, prepare_garden, prepare_furniture):
+    for step in (prepare_setup, prepare_monitor, prepare_laptop, prepare_vine, prepare_gaming, prepare_plants, prepare_garden, prepare_furniture):
         if only and step.__name__ != only:
             continue
         try:
