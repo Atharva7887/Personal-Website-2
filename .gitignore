@@ -16,3 +16,9 @@ dist-ssr
 
 dist-ssr
 exports
+
+# Locally installed agent skills (not part of the site)
+.agents/
+.claude/skills/
+skills-lock.json
+.taste-skill/
