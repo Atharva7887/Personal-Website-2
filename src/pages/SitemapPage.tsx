@@ -47,7 +47,7 @@ export function SitemapPage() {
         </div>
         <p className="mt-14 text-sm text-slate">
           For search engines:{' '}
-          <a href="/sitemap.xml" className="link">
+          <a href="/sitemap.xml" className="link inline-flex min-h-[44px] items-center">
             sitemap.xml
           </a>
         </p>

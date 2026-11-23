@@ -31,7 +31,7 @@ export function Hero() {
       />
 
       <header className="page relative z-10 flex items-center justify-between pt-5">
-        <a href="#top" className="font-display text-lg font-semibold tracking-tight">
+        <a href="#top" className="flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold tracking-tight">
           AS<span className="text-volt">.</span>
         </a>
         <nav aria-label="Sections">

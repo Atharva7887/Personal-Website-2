@@ -31,7 +31,7 @@ export function Dock() {
       }
     >
       <div className="flex items-center gap-1 rounded-full border border-ink/10 bg-white/90 p-1.5 pl-5 text-ink shadow-[0_12px_40px_-12px_rgba(12,15,20,.45)] backdrop-blur-md">
-        <a href="/" className="mr-auto flex min-h-[44px] items-center gap-3 text-sm" tabIndex={shown ? 0 : -1}>
+        <a href="/" className="mr-auto flex min-h-[44px] min-w-[44px] items-center gap-3 text-sm" tabIndex={shown ? 0 : -1}>
           <span className="font-display font-semibold">AS<span className="text-volt">.</span></span>
           <span className="hidden text-slate sm:inline">
             Pune {time && <time className="tabular-nums">{time}</time>}

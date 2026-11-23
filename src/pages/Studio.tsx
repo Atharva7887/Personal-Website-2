@@ -342,7 +342,7 @@ export function Studio() {
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-7">
         <div className="pointer-events-auto flex flex-col items-start">
-          <a href="/" className="flex min-h-[44px] items-center font-display text-lg font-semibold">
+          <a href="/" className="flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold">
             AS<span className={dark ? 'text-voltsoft' : 'text-volt'}>.</span>
           </a>
           <button
@@ -395,7 +395,7 @@ export function Studio() {
                 onClick={() => (p.id ? (walking ? walkIn(p.id) : standIn(p.id)) : overview())}
                 aria-current={here ? 'location' : undefined}
                 className={
-                  'min-h-[40px] whitespace-nowrap rounded-full px-4 transition-colors ' +
+                  'min-h-[44px] whitespace-nowrap rounded-full px-4 transition-[background-color,color,transform] active:scale-[0.95] ' +
                   (here ? (dark ? 'bg-white text-ink' : 'bg-ink text-fog') : dark ? 'hover:bg-white/15' : 'hover:bg-white')
                 }
               >
@@ -408,7 +408,7 @@ export function Studio() {
             onClick={() => (walking ? standIn(place ?? 'room') : walkIn(place ?? 'room'))}
             aria-pressed={walking}
             className={
-              'flex min-h-[40px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 transition-colors ' +
+              'flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 transition-[background-color,color,transform] active:scale-[0.95] ' +
               (walking ? 'bg-volt text-white' : dark ? 'hover:bg-white/15' : 'hover:bg-white')
             }
           >
@@ -584,7 +584,7 @@ export function Studio() {
                   }}
                   aria-current={active === s.id}
                   className={
-                    'flex min-h-[40px] w-full items-center gap-2 rounded-full px-4 text-left text-sm font-medium transition-colors ' +
+                    'flex min-h-[44px] w-full items-center gap-2 rounded-full px-4 text-left text-sm font-medium transition-[background-color,color,transform] active:scale-[0.97] ' +
                     (active === s.id || hover === s.id
                       ? dark
                         ? 'bg-white text-ink'
@@ -645,7 +645,7 @@ export function Studio() {
         <div className="absolute bottom-16 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/80 py-1.5 pl-4 pr-1.5 text-sm text-fog backdrop-blur">
           <span className="[@media(hover:none)]:hidden">{seatedOn ? 'Press E or take a step to stand up' : `Press E to sit on ${seatNear}`}</span>
           <span className="hidden [@media(hover:none)]:inline">{seatedOn ? `Sitting on ${seatedOn}` : `Sit on ${seatNear}?`}</span>
-          <button onClick={() => room.current?.toggleSit()} className="min-h-[36px] rounded-full bg-white px-4 font-medium text-ink">
+          <button onClick={() => room.current?.toggleSit()} className="min-h-[44px] rounded-full bg-white px-4 font-medium text-ink transition-transform active:scale-[0.94]">
             {seatedOn ? 'Stand up' : 'Sit'}
           </button>
         </div>

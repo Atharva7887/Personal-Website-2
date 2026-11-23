@@ -17,7 +17,7 @@ export function CaseStudy({ project: p }: { project: Project }) {
           <header className="page grid gap-10 pb-14 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
             <div>
               <p className="text-slate">
-                <a href="/#work" className="link">
+                <a href="/#work" className="link inline-flex min-h-[44px] min-w-[44px] items-center">
                   Work
                 </a>{' '}
                 / {p.kind}, {p.year}

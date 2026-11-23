@@ -165,7 +165,7 @@ export function Contact() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-5 text-sm text-white/85">
           <p>© 2026 {NAME}</p>
           <span className="flex gap-6">
-            <a href="/studio/" className="link inline-flex min-h-[44px] items-center">Studio</a>
+            <a href="/studio/" className="link inline-flex min-h-[44px] min-w-[44px] items-center justify-center">Studio</a>
             <a href="/play/" className="link inline-flex min-h-[44px] items-center">Play: find the minimum</a>
             <a href="/sitemap/" className="link inline-flex min-h-[44px] items-center">Sitemap</a>
           </span>

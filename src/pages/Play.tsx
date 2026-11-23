@@ -139,7 +139,7 @@ export function Play() {
 
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-5 sm:p-7">
-        <a href="/" className="pointer-events-auto flex min-h-[44px] items-center font-display text-lg font-semibold">
+        <a href="/" className="pointer-events-auto flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold">
           AS<span className="text-voltsoft">.</span>
         </a>
         {started && !won && (
