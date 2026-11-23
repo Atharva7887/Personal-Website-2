@@ -10,7 +10,7 @@ export function SubpageHeader() {
         <ul className="flex items-center gap-1 sm:gap-2">
           {NAV.map((n) => (
             <li key={n.href}>
-              <a href={n.href} className="flex min-h-[44px] items-center rounded-full px-3 text-[0.9375rem] transition-colors hover:text-volt">
+              <a href={n.href} className="flex min-h-[44px] items-center rounded-full px-3 text-[0.9375rem] transition-[color,transform] hover:text-volt active:scale-[0.94]">
                 {n.label}
               </a>
             </li>

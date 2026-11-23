@@ -42,7 +42,7 @@ export function Dock() {
             key={n.href}
             href={n.href}
             tabIndex={shown ? 0 : -1}
-            className="hidden min-h-[44px] items-center rounded-full px-3 text-sm text-ink transition-colors hover:text-volt sm:flex"
+            className="hidden min-h-[44px] items-center rounded-full px-3 text-sm text-ink transition-[color,transform] hover:text-volt active:scale-[0.94] sm:flex"
           >
             {n.label}
           </a>

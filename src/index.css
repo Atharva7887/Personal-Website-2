@@ -265,3 +265,15 @@ html[data-studio-night] .studio-loader {
   background-color: #0b0d1a;
   color: #e4e7ec;
 }
+
+/* Door between pages: navigating within the site cross-fades instead of cutting (browsers without it just navigate). */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.28s;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}

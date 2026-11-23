@@ -29,7 +29,7 @@ function Row({ p, i, onActive, active }: { p: Project; i: number; onActive: (i: 
           <h3
             className={
               'mt-1 text-4xl font-semibold leading-none tracking-[-0.03em] transition-[transform,color] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:text-5xl xl:text-6xl ' +
-              (active ? 'translate-x-3 text-white' : 'text-fog/80')
+              (active ? 'translate-x-3 text-white group-active:translate-x-5' : 'text-fog/80')
             }
           >
             {p.name}
@@ -38,7 +38,7 @@ function Row({ p, i, onActive, active }: { p: Project; i: number; onActive: (i: 
         </div>
         <span className="text-sm text-mist transition-colors group-hover:text-voltsoft">
           {page ? 'Case study' : external ? 'Code' : ''}
-          <span aria-hidden="true" className="ml-1 inline-block transition-transform duration-300 group-hover:translate-x-1">
+          <span aria-hidden="true" className="ml-1 inline-block transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1.4)] group-hover:translate-x-1 group-active:translate-x-2">
             ›
           </span>
         </span>

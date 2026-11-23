@@ -15,7 +15,9 @@ export function CopyEmail({ className = '' }: { className?: string }) {
   }
   return (
     <button type="button" onClick={copy} className={className} aria-live="polite">
-      {copied ? 'Copied to clipboard' : 'Copy email'}
+      <span key={String(copied)} className="inline-block" style={{ animation: copied ? 'pop .4s cubic-bezier(.2,.8,.2,1.4)' : undefined }}>
+        {copied ? 'Copied to clipboard' : 'Copy email'}
+      </span>
     </button>
   )
 }

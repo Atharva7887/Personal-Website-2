@@ -110,7 +110,7 @@ export function CaseStudy({ project: p }: { project: Project }) {
               <span className="text-slate">Next project</span>
               <span className="mt-2 block text-[clamp(2.4rem,7vw,6rem)] font-semibold leading-none tracking-[-0.04em] transition-colors group-hover:text-volt">
                 {next.name}
-                <span aria-hidden="true" className="ml-3 inline-block transition-transform duration-300 group-hover:translate-x-3">
+                <span aria-hidden="true" className="ml-3 inline-block transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1.4)] group-hover:translate-x-3 group-active:translate-x-5">
                   ›
                 </span>
               </span>

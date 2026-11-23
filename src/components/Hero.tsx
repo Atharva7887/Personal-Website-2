@@ -40,7 +40,7 @@ export function Hero() {
               <li key={n.href}>
                 <a
                   href={n.href}
-                  className="flex min-h-[44px] items-center rounded-full px-3 text-[0.9375rem] transition-colors hover:text-volt"
+                  className="flex min-h-[44px] items-center rounded-full px-3 text-[0.9375rem] transition-[color,transform] hover:text-volt active:scale-[0.94]"
                 >
                   {n.label}
                 </a>

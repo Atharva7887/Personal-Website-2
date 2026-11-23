@@ -549,7 +549,11 @@ export function Studio() {
           <h2 className="mt-1 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">{stop.title}</h2>
           <p className="mt-3 text-slate">{stop.body}</p>
           {stop.link && (
-            <a href={stop.link.href} className="link mt-3 inline-flex min-h-[44px] items-center font-medium">
+            // The last stop is the ending of the tour, so its one action is a real button: the thing to remember and do.
+            <a
+              href={stop.link.href}
+              className={tourIndex === STOPS.length - 1 ? 'btn mt-4 bg-volt px-6 text-white hover:bg-ink' : 'link mt-3 inline-flex min-h-[44px] items-center font-medium'}
+            >
               {stop.link.label}
             </a>
           )}
