@@ -81,41 +81,29 @@ function Backdrop() {
   )
 }
 
-const WORD = 'Atharva.'.split('')
-
 export function Footer() {
   const ref = useReveals<HTMLElement>()
   const mail = useMagnet<HTMLSpanElement>(0.2)
-  const word = useRef<HTMLSpanElement>(null)
 
-  // The name leans toward the pointer: each letter lifts by how close the cursor is, the headline drifts a few px.
+  // The headline drifts a few px toward the pointer.
   // Everything is a CSS transition on a variable, so leaving mid-way retargets from where it is (interruptible).
   useEffect(() => {
     const host = ref.current
     if (!host || !window.matchMedia('(hover: hover)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     let raf = 0
-    const letters = () => word.current?.querySelectorAll<HTMLElement>('[data-l]') ?? []
     const move = (e: PointerEvent) => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         const r = host.getBoundingClientRect()
         host.style.setProperty('--px', String(((e.clientX - r.left) / r.width - 0.5) * 2))
         host.style.setProperty('--py', String(((e.clientY - r.top) / r.height - 0.5) * 2))
-        letters().forEach((l) => {
-          const b = l.getBoundingClientRect()
-          const d = Math.abs(e.clientX - (b.left + b.width / 2)) / Math.max(b.width * 2.2, 1)
-          // Letters answer fully only when the pointer is near the name's own height.
-          const near = Math.max(0, 1 - d) * (Math.abs(e.clientY - (b.top + b.height / 2)) < b.height ? 1 : 0.35)
-          l.style.setProperty('--d', near.toFixed(3))
-        })
       })
     }
     const leave = () => {
       cancelAnimationFrame(raf)
       host.style.setProperty('--px', '0')
       host.style.setProperty('--py', '0')
-      letters().forEach((l) => l.style.setProperty('--d', '0'))
     }
     host.addEventListener('pointermove', move)
     host.addEventListener('pointerleave', leave)
@@ -180,45 +168,10 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="reveal mt-12 flex flex-wrap items-center justify-between gap-x-8 gap-y-4" style={stagger(2)}>
-          <p className="max-w-md text-lg text-white">
-            You made it to the end. Most visitors don’t. You’re an outlier, p&nbsp;&lt;&nbsp;0.05.
-          </p>
-          <a
-            href="#top"
-            onClick={(e) => {
-              e.preventDefault()
-              window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-            }}
-            className="glass-pill"
-          >
-            Back to top
-            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" />
-            </svg>
-          </a>
-        </div>
-      </div>
-
-      {/* The name is the last big thing the page says, set across the full width. Decorative: the h2 and links carry the meaning. */}
-      <div className="page select-none">
-        <span
-          ref={word}
-          aria-hidden="true"
-          className="footer-word block whitespace-nowrap font-display text-[clamp(4.5rem,23.5vw,24rem)] font-bold leading-[0.8] tracking-[-0.06em]"
-        >
-          {WORD.map((ch, i) => (
-            <span key={i} className="reveal footer-letter inline-block" style={stagger(i + 2)}>
-              <span data-l className="footer-letter-in inline-block">
-                {ch}
-              </span>
-            </span>
-          ))}
-        </span>
       </div>
 
       <div className="page">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-4 text-sm text-white/90">
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-4 text-sm text-white/90">
           <p>© 2026 {NAME}</p>
           <p>Made in {LOCATION.split(',')[0]}.</p>
         </div>

@@ -1,5 +1,4 @@
-import { EMAIL, LOCATION, NAV, RESUME_URL } from '../data/site'
-import { useMagnet } from './motion'
+import { LOCATION, NAV } from '../data/site'
 import { ParticleCanvas } from './ParticleCanvas'
 
 function Words({ text, start = 0 }: { text: string; start?: number }) {
@@ -16,7 +15,6 @@ function Words({ text, start = 0 }: { text: string; start?: number }) {
 }
 
 export function Hero() {
-  const cta = useMagnet<HTMLSpanElement>(0.35)
 
   return (
     <section id="top" className="relative flex min-h-[100svh] flex-col overflow-hidden">
@@ -68,27 +66,11 @@ export function Hero() {
           <br />
           <Words text="Shirke" start={1} />
         </h1>
-        <div className="mt-8 grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="mt-8">
           <p className="after-intro max-w-[34rem] text-xl leading-snug sm:text-2xl" style={{ ['--i' as string]: 1 }}>
             Software engineer and data scientist. I build machine-learning pipelines, data products and the
             web apps around them.
           </p>
-          <div className="after-intro flex flex-wrap gap-3" style={{ ['--i' as string]: 2 }}>
-            <span ref={cta} className="inline-block">
-              <a href={`mailto:${EMAIL}`} className="btn btn-ink">
-                Start a project
-              </a>
-            </span>
-            {RESUME_URL ? (
-              <a href={RESUME_URL} download data-goatcounter-click="resume-download" className="btn btn-ghost">
-                Résumé
-              </a>
-            ) : (
-              <a href="#work" className="btn btn-ghost">
-                See my work
-              </a>
-            )}
-          </div>
         </div>
       </div>
     </section>
