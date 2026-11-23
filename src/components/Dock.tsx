@@ -3,15 +3,21 @@ import { NAV } from '../data/site'
 
 /** Compact bar that slides up once the hero has scrolled away (Jakob: nav stays where people expect it). */
 export function Dock() {
-  const [shown, setShown] = useState(false)
+  const [heroGone, setHeroGone] = useState(false)
+  const [atEnd, setAtEnd] = useState(false)
+  // Once the closing section is on screen the dock's "Let’s talk" has nothing left to point at, and it would sit on the footer's last line.
+  const shown = heroGone && !atEnd
   const [time, setTime] = useState('')
 
   useEffect(() => {
     const hero = document.getElementById('top')
     // Subpages have no hero: the dock is always there.
-    const io = new IntersectionObserver(([e]) => setShown(!e.isIntersecting), { threshold: 0.05 })
+    const io = new IntersectionObserver(([e]) => setHeroGone(!e.isIntersecting), { threshold: 0.05 })
     if (hero) io.observe(hero)
-    else setShown(true)
+    else setHeroGone(true)
+    const end = document.getElementById('contact')
+    const endIo = new IntersectionObserver(([e]) => setAtEnd(e.isIntersecting), { threshold: 0.35 })
+    if (end) endIo.observe(end)
     const fmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
     const tick = () => setTime(fmt.format(new Date()))
     tick()

@@ -1,5 +1,5 @@
 import { hasPage, projects, type Project } from '../data/projects'
-import { Contact } from '../components/Sections'
+import { Footer } from '../components/Footer'
 import { ParticleCanvas } from '../components/ParticleCanvas'
 import { SubpageHeader } from '../components/SubpageHeader'
 
@@ -117,8 +117,8 @@ export function CaseStudy({ project: p }: { project: Project }) {
             </a>
           </nav>
         </article>
-        <Contact />
       </main>
+      <Footer />
     </>
   )
 }

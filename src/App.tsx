@@ -4,7 +4,8 @@ import { Dock } from './components/Dock'
 import { Marquee } from './components/Marquee'
 import { Work } from './components/Work'
 import { OffTheClock } from './components/OffTheClock'
-import { About, Contact, Services } from './components/Sections'
+import { About, Services } from './components/Sections'
+import { Footer } from './components/Footer'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
 import { Studio } from './pages/Studio'
@@ -113,8 +114,8 @@ export default function App({ path }: { path: string }) {
         <Services />
         <About />
         <OffTheClock />
-        <Contact />
       </main>
+      <Footer />
     </>
   )
 }

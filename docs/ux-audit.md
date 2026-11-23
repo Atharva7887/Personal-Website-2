@@ -25,11 +25,15 @@ Status: **Pass** (already right), **Fixed** (changed here), **N/A**, **Left** (d
 | Rubber banding | Left | Page scroll is native/Lenis (lerp 0.1); nothing on the page has a hard limit to soften |
 | Door threshold | Fixed | Studio and Play cards lift 4 px on hover, picture leans in to 1.04, press squeezes the card and pushes the picture to 1.09 (`OffTheClock.tsx`); pages now cross-fade (`@view-transition`, index.css:271) |
 | Interruptible | Fixed | Magnet button snapped ~26 px on entry; now eases in and retargets (measured 0 to -26 px over ~160 ms, `motion.ts:53`). Card hover and leave retarget mid-way (checked at 50 ms: scale 0.994, image 1.064, not snapped) |
+| Reduced motion (ending) | Pass | No shader mounted, the CSS gradient stays; no lift, drift or reveals. The shader is lazy (own chunk), mounts within ~600 px of the footer and unmounts 1.5 s after leaving |
 | Fitts | Fixed | Logo links were 22-28 px wide, footer "Studio" 42 px: all now 44 px (Hero, Dock, Sections). Phone: nothing under 44 px except the hidden skip link |
+| Fitts (ending) | Pass | Footer links 44 px tall and wide, email pill 64 px, copy 48 px, Back to top 48 px; the floating dock slides away while the footer is on screen so it never covers the last line (`Dock.tsx`) |
 | Hick | Pass | Header 4 choices, hero 2, Off the clock 2 |
+| Hick (ending) | Pass | Three groups of three links, one email, one Back to top |
 | Von Restorff | Fixed | Studio was an equal twin of the game; it now has the wider card and the only accent button |
+| Von Restorff (ending) | Pass | The email pill is the only white solid thing in the footer; everything else is white text on dark, the copy button and Back to top are outlined or glass |
 | Frequency of use | Pass | "Let's talk" and Work/Services/About sit in the header and the dock |
-| Peak-end | Pass | Hero entrance is the peak; the ending is a full-bleed accent section, 64 px email button, copy button, links, back to top in the corner |
+| Peak-end | Fixed | The ending is now its own moment (`Footer.tsx`): "Let’s build something." over a slow ink and volt shader gradient, the 64 px email pill, link groups, an "outlier, p < 0.05" line and the name set across the full width that lifts letter by letter toward the pointer. Hero entrance stays the peak; this is the end |
 
 ## Studio (`/studio/`)
 
@@ -125,7 +129,7 @@ Status: **Pass** (already right), **Fixed** (changed here), **N/A**, **Left** (d
 | Hick | Pass | One next action |
 | Von Restorff | Pass | First link is the ink button, the rest ghost |
 | Frequency of use | Pass | Header and dock persist |
-| Peak-end | Pass | Next project, then the shared Contact ending |
+| Peak-end | Pass | Next project, then the shared footer ending |
 
 ## Left on purpose
 
