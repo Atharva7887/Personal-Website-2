@@ -38,7 +38,8 @@ export function Play() {
   const [time, setTime] = useState(0)
   const [won, setWon] = useState<number | null>(null)
   const [best, setBest] = useState<number | null>(null)
-  const [stick, setStick] = useState<{ x: number; y: number; dx: number; dy: number } | null>(null)
+  // dx/dy steer (clamped to the rim); sx/sy only draw the knob, which stretches a little past the rim.
+  const [stick, setStick] = useState<{ x: number; y: number; dx: number; dy: number; sx: number; sy: number } | null>(null)
 
   useEffect(() => setBest(loadBest()), [])
 
@@ -108,13 +109,17 @@ export function Play() {
   const onDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') return
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    setStick({ x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
+    setStick({ x: e.clientX, y: e.clientY, dx: 0, dy: 0, sx: 0, sy: 0 })
   }
   const onMove = (e: React.PointerEvent) => {
     if (!stick) return
-    const dx = Math.max(-1, Math.min(1, (e.clientX - stick.x) / 60))
-    const dy = Math.max(-1, Math.min(1, (e.clientY - stick.y) / 60))
-    setStick({ ...stick, dx, dy })
+    const rx = (e.clientX - stick.x) / 60
+    const ry = (e.clientY - stick.y) / 60
+    const dx = Math.max(-1, Math.min(1, rx))
+    const dy = Math.max(-1, Math.min(1, ry))
+    const m = Math.hypot(rx, ry)
+    const show = m > 1 ? (1 + 0.28 * (1 - Math.exp(-(m - 1) * 2.5))) / m : 1
+    setStick({ ...stick, dx, dy, sx: rx * show, sy: ry * show })
     world.current?.setInput(dx, dy)
   }
   const onUp = () => {
@@ -145,7 +150,9 @@ export function Play() {
         {started && !won && (
           <div className="text-right font-display tabular-nums">
             <p className="text-4xl font-semibold leading-none sm:text-5xl">
-              {found.length}
+              <span key={found.length} className="inline-block origin-bottom-right" style={{ animation: found.length ? 'pop .4s cubic-bezier(.2,.8,.2,1.4)' : undefined }}>
+                {found.length}
+              </span>
               <span className="text-mist">/{ORBS.length}</span>
             </p>
             <p className="mt-1 text-mist">{fmt(time)}</p>
@@ -196,8 +203,10 @@ export function Play() {
       {/* Project card on pickup */}
       {cardProject && !won && (
         <div
+          key={card}
           role="status"
-          className="absolute bottom-24 left-1/2 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 animate-[pop_.45s_cubic-bezier(.2,.8,.2,1.4)] rounded-3xl bg-white p-6 text-ink shadow-2xl"
+          style={{ animation: 'pop .45s cubic-bezier(.2,.8,.2,1.4), card-out .35s ease-in 3.8s forwards' }}
+          className="absolute inset-x-0 bottom-24 mx-auto w-[min(28rem,calc(100%-2rem))] origin-bottom rounded-3xl bg-white p-6 text-ink shadow-2xl"
         >
           <p className="text-sm text-slate">
             Found {found.length} of {ORBS.length}
@@ -212,7 +221,7 @@ export function Play() {
 
       {/* Unlock hint */}
       {unlocked && !won && !cardProject && (
-        <p role="status" className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-voltsoft px-5 py-3 text-center font-medium text-ink">
+        <p role="status" style={{ animation: 'pop .45s cubic-bezier(.2,.8,.2,1.4)' }} className="absolute inset-x-0 bottom-24 mx-auto w-max max-w-[calc(100%-2rem)] origin-bottom rounded-full bg-voltsoft px-5 py-3 text-center font-medium text-ink">
           All found. Follow the beam of light to the global minimum.
         </p>
       )}
@@ -228,20 +237,20 @@ export function Play() {
       {/* Touch joystick */}
       {stick && (
         <div aria-hidden="true" className="pointer-events-none fixed h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" style={{ left: stick.x, top: stick.y }}>
-          <div className="absolute left-1/2 top-1/2 h-10 w-10 rounded-full bg-white/80" style={{ transform: `translate(calc(-50% + ${stick.dx * 30}px), calc(-50% + ${stick.dy * 30}px))` }} />
+          <div className="absolute left-1/2 top-1/2 h-10 w-10 rounded-full bg-white/80" style={{ transform: `translate(calc(-50% + ${stick.sx * 30}px), calc(-50% + ${stick.sy * 30}px))` }} />
         </div>
       )}
 
       {/* Win */}
       {won !== null && (
-        <div className="absolute inset-0 flex flex-col justify-end bg-[#0b0d1a]/70 p-5 backdrop-blur-sm sm:p-10">
+        <div className="absolute inset-0 flex flex-col justify-end bg-[#0b0d1a]/70 p-5 backdrop-blur-sm sm:p-10" style={{ animation: 'fade-in .5s ease-out both' }}>
           <p className="text-lg text-fog/85">Converged.</p>
-          <h2 className="mt-3 font-display text-[clamp(3.6rem,14vw,13rem)] font-semibold leading-[0.85] tracking-[-0.05em]">{fmt(won)}</h2>
+          <h2 style={{ animation: 'pop .7s cubic-bezier(.2,.8,.2,1.4) .15s both' }} className="mt-3 origin-bottom-left font-display text-[clamp(3.6rem,14vw,13rem)] font-semibold leading-[0.85] tracking-[-0.05em]">{fmt(won)}</h2>
           <p className="mt-4 text-fog/85">
             {best !== null && won <= best ? 'A new best time.' : best !== null ? `Your best is ${fmt(best)}.` : ''} You found
             all {ORBS.length} projects and reached the global minimum.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-3" style={{ animation: 'fade-up .6s cubic-bezier(.2,.7,.2,1) .5s both' }}>
             <button onClick={restart} className="btn bg-white text-ink hover:bg-voltsoft">
               Play again
             </button>

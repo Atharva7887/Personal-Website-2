@@ -149,6 +149,10 @@ html.first-visit .after-intro {
   animation-delay: calc(1.2s + var(--i, 0) * 90ms);
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
 @keyframes pop {
   0% { transform: scale(0.9); }
   60% { transform: scale(1.04); }
@@ -232,9 +236,18 @@ html.js .reveal:not(.is-in) {
   from { opacity: 0; transform: translateY(40px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
-@keyframes card-from-above {
-  from { opacity: 0; transform: translateY(-40px) scale(0.97); }
+/* Stepping through the tour swaps only the words: a short slide in the direction of travel, never blank. */
+@keyframes swap-from-below {
+  from { opacity: 0.25; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
+}
+@keyframes swap-from-above {
+  from { opacity: 0.25; transform: translateY(-14px); }
+  to { opacity: 1; transform: none; }
+}
+/* Play: the project card leaves as gently as it arrived. */
+@keyframes card-out {
+  to { opacity: 0; transform: translateY(12px) scale(0.97); }
 }
 @keyframes scroll-dot {
   0% { transform: translateY(0); opacity: 1; }

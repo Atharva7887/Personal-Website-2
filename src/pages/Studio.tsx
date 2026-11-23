@@ -425,7 +425,7 @@ export function Studio() {
         <section
           id="studio-credits"
           aria-label="3D model credits"
-          className="absolute left-4 top-28 z-10 max-h-[calc(100svh-8rem)] w-[min(22rem,calc(100vw-2rem))] animate-[pop_.4s_cubic-bezier(.2,.8,.2,1.3)] overflow-auto rounded-3xl bg-white p-6 text-sm text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:left-7"
+          className="absolute left-4 top-28 z-10 max-h-[calc(100svh-8rem)] w-[min(22rem,calc(100vw-2rem))] origin-top-left animate-[pop_.4s_cubic-bezier(.2,.8,.2,1.3)] overscroll-contain overflow-auto rounded-3xl bg-white p-6 text-sm text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:left-7"
         >
           <h2 className="font-display text-xl font-semibold">3D model credits</h2>
           <p className="mt-2 text-slate">
@@ -536,11 +536,11 @@ export function Studio() {
 
       {stop && (
         <section
-          key={stop.id}
           aria-live="polite"
-          style={{ animation: `${dir > 0 ? 'card-from-below' : 'card-from-above'} .6s cubic-bezier(.2,.8,.2,1) both` }}
-          className="studio-card absolute bottom-4 left-4 right-4 rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7"
+          style={{ animation: 'card-from-below .6s cubic-bezier(.2,.8,.2,1) both' }}
+          className="studio-card absolute bottom-4 left-4 right-4 rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7 origin-bottom-left"
         >
+          <div key={stop.id} className="studio-swap" style={{ animation: `${dir > 0 ? 'swap-from-below' : 'swap-from-above'} .38s cubic-bezier(.2,.8,.2,1) both` }}>
           {touring && (
             <p className="text-sm tabular-nums text-slate">
               {tourIndex + 1} of {STOPS.length}
@@ -553,6 +553,7 @@ export function Studio() {
               {stop.link.label}
             </a>
           )}
+          </div>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
             <button onClick={() => step(-1)} className="btn btn-ghost min-h-[44px] px-4 text-sm">
               Back
@@ -570,7 +571,7 @@ export function Studio() {
       )}
 
       {entered && !walking && (
-        <nav aria-label="Things in the room" className="absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto sm:right-7 md:block">
+        <nav aria-label="Things in the room" className={'absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto overscroll-contain transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100 sm:right-7 md:block ' + (stop ? 'opacity-60' : '')}>
           {PLACES.map((pl) => (
             <div key={pl.id} className="mb-3">
               <p className={'mb-1.5 w-max rounded-full px-2 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/70' : 'bg-white/85 text-slate')}>{pl.label}</p>
@@ -736,12 +737,17 @@ function StudioLoader({ progress, done, dark }: { progress: number; done: boolea
 function WalkStick({ onMove, dark }: { onMove: (x: number, y: number) => void; dark: boolean }) {
   const knob = useRef<HTMLSpanElement>(null)
   const R = 44
-  const set = (dx: number, dy: number) => {
+  // The walk input stops dead at the rim, but the knob itself stretches a little past it and snaps back (rubber band).
+  const set = (dx: number, dy: number, release = false) => {
     const d = Math.hypot(dx, dy)
     const k = d > R ? R / d : 1
     const x = dx * k
     const y = dy * k
-    if (knob.current) knob.current.style.transform = `translate(${x}px, ${y}px)`
+    const show = d > R ? (R + R * 0.28 * (1 - Math.exp(-((d - R) / R) * 2.5))) / d : 1
+    if (knob.current) {
+      knob.current.style.transition = release ? 'transform .4s cubic-bezier(.2,.8,.2,1.5)' : 'none'
+      knob.current.style.transform = `translate(${dx * show}px, ${dy * show}px)`
+    }
     onMove(x / R, -y / R)
   }
   const centre = (el: HTMLElement) => {
@@ -762,8 +768,8 @@ function WalkStick({ onMove, dark }: { onMove: (x: number, y: number) => void; d
         const c = centre(e.currentTarget)
         set(e.clientX - c.x, e.clientY - c.y)
       }}
-      onPointerUp={() => set(0, 0)}
-      onPointerCancel={() => set(0, 0)}
+      onPointerUp={() => set(0, 0, true)}
+      onPointerCancel={() => set(0, 0, true)}
     >
       <span ref={knob} className={'h-12 w-12 rounded-full shadow ' + (dark ? 'bg-white' : 'bg-ink')} />
     </div>
