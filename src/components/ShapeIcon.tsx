@@ -8,6 +8,7 @@ import { shape, type ShapeName } from '../three/shapes'
 export function ShapeIcon({ name, active, size = 72 }: { name: ShapeName; active: boolean; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const angle = useRef(0.6)
+  const speed = useRef(0) // radians a second, carried between renders so an interrupted turn keeps its momentum
 
   useEffect(() => {
     const c = ref.current
@@ -23,7 +24,11 @@ export function ShapeIcon({ name, active, size = 72 }: { name: ShapeName; active
     let last = performance.now()
     const draw = () => {
       const now = performance.now()
-      if (active && !reduced) angle.current += ((now - last) / 1000) * 0.9
+      const dt = Math.min(0.05, (now - last) / 1000)
+      // Slow in, slow out: the turn spins up when hovered and winds down when not, instead of starting and stopping dead.
+      const target = active && !reduced ? 0.9 : 0
+      speed.current += (target - speed.current) * (1 - Math.exp(-dt * 5))
+      angle.current += speed.current * dt
       last = now
       const ca = Math.cos(angle.current)
       const sa = Math.sin(angle.current)
@@ -36,7 +41,7 @@ export function ShapeIcon({ name, active, size = 72 }: { name: ShapeName; active
         ctx.fillStyle = i % 21 === 0 ? '#2f45ff' : 'rgba(12,15,20,' + (0.45 + z * 0.12).toFixed(2) + ')'
         ctx.fillRect(c.width / 2 + x * s, c.height / 2 - y * s, 1.4 * dpr, 1.4 * dpr)
       }
-      if (active && !reduced) raf = requestAnimationFrame(draw)
+      if (!reduced && (active || speed.current > 0.01)) raf = requestAnimationFrame(draw)
     }
     draw()
     return () => cancelAnimationFrame(raf)
