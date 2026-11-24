@@ -7,18 +7,48 @@ export interface Orb {
   z: number
 }
 
+export interface Hud {
+  /** Seconds left on the clock. */
+  left: number
+  score: number
+  combo: number
+  /** 0 to 1: how much of the streak window is left. */
+  comboLeft: number
+  /** 0 to 1: how recharged the boost is (1 is ready). */
+  boost: number
+  boosting: boolean
+  /** Gradient noise, in the same units as the push of the ball. */
+  noise: number
+}
+
 export interface WorldEvents {
-  onCollect: (id: string, collected: number) => void
+  onCollect: (id: string, info: { collected: number; combo: number; points: number; bonus: number }) => void
   onUnlock: () => void
-  onWin: (seconds: number) => void
-  onTick: (seconds: number) => void
+  onWin: (r: { score: number; bonus: number; left: number; seconds: number }) => void
+  onLose: (r: { score: number; collected: number }) => void
+  onTick: (hud: Hud) => void
+  onBump: () => void
+  onBoost: () => void
 }
 
 export interface WorldHandle {
   setInput: (x: number, z: number) => void
+  boost: () => void
+  setPaused: (paused: boolean) => void
   restart: () => void
   dispose: () => void
 }
+
+// Game rules. The clock is the "budget of epochs": start with some, earn more by finding orbs.
+const START_TIME = 60
+const ORB_TIME = 6
+const ORB_POINTS = 100
+const WIN_POINTS = 500
+const WIN_TIME_POINTS = 25 // per second left
+const COMBO_MAX = 6
+const BOOST_TIME = 0.9
+const BOOST_COOLDOWN = 3.2
+const GRACE = 0.8 // the clock waits while the camera settles
 
 const SIZE = 64 // playable area is SIZE x SIZE, centred on the origin
 const HALF = SIZE / 2
@@ -253,7 +283,8 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
   scene.add(beam)
 
   // Burst particles on pickup
-  const BURST = 80
+  // Fewer sparks under reduced motion; the pickup is still clear from the orb vanishing and the card.
+  const BURST = opts.reduced ? 28 : 140
   const burstPos = new Float32Array(BURST * 3)
   const burstVel = new Float32Array(BURST * 3)
   const burstGeo = new THREE.BufferGeometry()
@@ -264,17 +295,33 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
   )
   scene.add(burst)
   let burstLife = 0
-  const fireBurst = (x: number, y: number, z: number) => {
+  const burstMat = burst.material as THREE.PointsMaterial
+  const fireBurst = (x: number, y: number, z: number, power = 1) => {
+    // A longer streak throws bigger, whiter sparks.
+    burstMat.size = 0.25 + power * 0.04
+    burstMat.color.set('#ffd29a').lerp(new THREE.Color('#ffffff'), Math.min(1, (power - 1) / 5))
     for (let i = 0; i < BURST; i++) {
       burstPos.set([x, y, z], i * 3)
       const a = Math.random() * Math.PI * 2
       const u = Math.random() * 2 - 1
       const s = Math.sqrt(1 - u * u)
-      const sp = 4 + Math.random() * 5
+      const sp = (4 + Math.random() * 5) * (0.9 + power * 0.1)
       burstVel.set([Math.cos(a) * s * sp, Math.abs(u) * sp + 2, Math.sin(a) * s * sp], i * 3)
     }
     burstLife = 1
+    if (!opts.reduced) {
+      ring.position.set(x, y - 0.6, z)
+      ringLife = 1
+    }
   }
+  // The shockwave: a flat ring that races outwards from a pickup.
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.85, 1, 48),
+    new THREE.MeshBasicMaterial({ color: '#ffd29a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  ring.rotation.x = -Math.PI / 2
+  scene.add(ring)
+  let ringLife = 0
 
   // State
   const START = { x: -22, z: 20 }
@@ -284,7 +331,22 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
   let collected = 0
   let unlocked = false
   let won = false
+  let lost = false
+  let paused = false
   let elapsed = 0
+  let timeLeft = START_TIME
+  let score = 0
+  let combo = 0
+  let comboTimer = 0
+  let boostT = 0 // seconds of boost left
+  let boostCd = 0 // seconds until the next boost
+  let grace = GRACE
+  let shake = 0
+  let bumpCd = 0
+  let lastHud = 0
+  const gust = new THREE.Vector2()
+  const gustTarget = new THREE.Vector2()
+  let gustT = 0
   let squash = 0
   const roll = new THREE.Quaternion()
 
@@ -294,7 +356,17 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
     collected = 0
     unlocked = false
     won = false
+    lost = false
     elapsed = 0
+    timeLeft = START_TIME
+    score = 0
+    combo = 0
+    comboTimer = 0
+    boostT = 0
+    boostCd = 0
+    grace = GRACE
+    shake = 0
+    gust.set(0, 0)
     orbObjs.forEach((ob) => {
       ob.taken = false
       ob.grp.visible = true
@@ -323,12 +395,24 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
 
   // Keyboard input (merged with the external touch input)
   const keys = new Set<string>()
+  const doBoost = () => {
+    if (boostCd > 0 || won || lost || paused || grace > 0) return
+    boostT = BOOST_TIME
+    boostCd = BOOST_COOLDOWN
+    shake = Math.max(shake, 0.3)
+    ev.onBoost()
+  }
   const onKey = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase()
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
       e.preventDefault()
       if (e.type === 'keydown') keys.add(k)
       else keys.delete(k)
+    } else if (k === ' ' || k === 'shift') {
+      // Space or Shift raises the learning rate. Space only counts on the canvas, so it still presses a focused button.
+      if (k === ' ' && document.activeElement !== canvas) return
+      if (k === ' ') e.preventDefault()
+      if (e.type === 'keydown' && !e.repeat) doBoost()
     }
   }
   window.addEventListener('keydown', onKey)
@@ -338,13 +422,26 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
 
   let last = performance.now()
   let raf = 0
-  let lastTick = -1
+
+  // The streak window shrinks as the run goes on, and the gradient noise grows: the difficulty curve.
+  const comboWindow = () => Math.max(3.5, 7 - 0.4 * collected)
+  const noiseAmp = () => collected * 2.2
+  const hudNow = (): Hud => ({
+    left: Math.max(0, timeLeft),
+    score,
+    combo,
+    comboLeft: combo > 0 ? Math.max(0, comboTimer / comboWindow()) : 0,
+    boost: boostCd > 0 ? 1 - boostCd / BOOST_COOLDOWN : 1,
+    boosting: boostT > 0,
+    noise: noiseAmp(),
+  })
 
   const step = () => {
     const now = performance.now()
     const dt = Math.min(0.033, (now - last) / 1000)
     last = now
     const t = now / 1000
+    const running = !won && !lost
 
     // Input: camera looks from (-x,+z) toward (+x,-z); map screen up to that direction.
     let ix = input.x
@@ -361,32 +458,66 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
     const fx = (ix + -iz) * Math.SQRT1_2 // rotate 45 degrees to match the camera
     const fz = (iz + ix) * Math.SQRT1_2
 
-    if (!won) {
+    // Boost: a higher learning rate. Bigger steps and far less friction, so you carry momentum and overshoot.
+    boostCd = Math.max(0, boostCd - dt)
+    const boostEnv = boostT > 0 ? Math.min(1, boostT / 0.25) : 0
+    boostT = Math.max(0, boostT - dt)
+
+    if (running) {
+      if (grace > 0) grace -= dt
+      else {
+        timeLeft -= dt
+        elapsed += dt
+      }
+      comboTimer = Math.max(0, comboTimer - dt)
+      if (comboTimer === 0) combo = 0
+
+      // Stochastic gradient noise: a wandering gust, stronger with every orb found.
+      gustT -= dt
+      if (gustT <= 0) {
+        gustT = 0.5 + Math.random() * 0.6
+        const a = Math.random() * Math.PI * 2
+        gustTarget.set(Math.cos(a), Math.sin(a))
+      }
+      gust.lerp(gustTarget, 1 - Math.pow(0.1, dt))
+      const na = noiseAmp()
+
       const g = grad(pos.x, pos.z)
-      const PUSH = 20
+      const PUSH = boostT > 0 ? 38 : 20
       const GRAV = 20
-      vel.x += (fx * PUSH - g.x * GRAV - vel.x * 0.9) * dt
-      vel.z += (fz * PUSH - g.z * GRAV - vel.z * 0.9) * dt
+      const DAMP = boostT > 0 ? 0.35 : 0.9
+      vel.x += (fx * PUSH - g.x * GRAV - vel.x * DAMP + gust.x * na) * dt
+      vel.z += (fz * PUSH - g.z * GRAV - vel.z * DAMP + gust.y * na) * dt
       pos.x += vel.x * dt
       pos.z += vel.z * dt
+      bumpCd = Math.max(0, bumpCd - dt)
       // Soft walls at the edge of the landscape
       for (const axis of ['x', 'z'] as const) {
         if (Math.abs(pos[axis]) > HALF - 1.5) {
+          const hit = Math.abs(vel[axis])
           pos[axis] = Math.sign(pos[axis]) * (HALF - 1.5)
           vel[axis] *= -0.5
           squash = 0.35
+          if (hit > 3 && bumpCd === 0) {
+            bumpCd = 0.18
+            shake = Math.max(shake, Math.min(0.35, hit * 0.03))
+            ev.onBump()
+          }
         }
       }
-      const ground = height(pos.x, pos.z) + R
-      pos.y = ground
-      elapsed += dt
-      const sec = Math.floor(elapsed)
-      if (sec !== lastTick) {
-        lastTick = sec
-        ev.onTick(elapsed)
+      pos.y = height(pos.x, pos.z) + R
+
+      if (timeLeft <= 0) {
+        timeLeft = 0
+        lost = true
+        squash = 0.4
+        ev.onLose({ score, collected })
       }
     } else {
       vel.multiplyScalar(0.9)
+      pos.x += vel.x * dt
+      pos.z += vel.z * dt
+      pos.y = height(pos.x, pos.z) + R
     }
 
     // Rolling rotation: axis perpendicular to velocity on the ground plane.
@@ -397,9 +528,9 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
       ball.quaternion.premultiply(roll)
     }
 
-    // Squash and stretch: stretch with speed, squash on impacts, spring back.
+    // Squash and stretch: stretch with speed (more on a boost), squash on impacts, spring back.
     squash *= Math.pow(0.02, dt)
-    const stretch = Math.min(0.22, speed * 0.012)
+    const stretch = Math.min(0.22, speed * 0.012) + boostEnv * 0.12
     ballPivot.position.copy(pos)
     if (speed > 0.05) {
       ballPivot.lookAt(pos.x + vel.x, pos.y, pos.z + vel.z)
@@ -407,12 +538,14 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
     ballPivot.scale.set(1 - stretch * 0.5 + squash * 0.4, 1 - squash * 0.6, 1 + stretch - squash * 0.2)
     ballPivot.position.y -= squash * 0.3
     ballLight.position.set(pos.x, pos.y + 1.4, pos.z)
+    ballLight.intensity = 18 + boostEnv * 30
 
     // Trail
     if (!opts.reduced) {
       trailPos.copyWithin(3, 0, (TRAIL - 1) * 3)
       trailPos.set([pos.x, pos.y - R * 0.6, pos.z], 0)
       trailGeo.attributes.position.needsUpdate = true
+      ;(trail.material as THREE.PointsMaterial).size = 0.28 + boostEnv * 0.3
     }
 
     // Orbs: bob, spin, collect
@@ -433,13 +566,20 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
       ob.gem.rotation.x += dt * 0.7
       const dx = ob.o.x - pos.x
       const dz = ob.o.z - pos.z
-      if (dx * dx + dz * dz < 2.4 * 2.4 && !won) {
+      if (dx * dx + dz * dz < 2.4 * 2.4 && running) {
         ob.taken = true
         ob.pop = 1
         collected++
+        // Streak: another orb inside the window keeps it going and the points climb.
+        combo = comboTimer > 0 ? Math.min(COMBO_MAX, combo + 1) : 1
+        comboTimer = comboWindow()
+        const points = ORB_POINTS * combo
+        score += points
+        timeLeft += ORB_TIME
         squash = 0.25
-        fireBurst(ob.grp.position.x, ob.grp.position.y, ob.grp.position.z)
-        ev.onCollect(ob.o.id, collected)
+        shake = Math.max(shake, 0.3 + combo * 0.05)
+        fireBurst(ob.grp.position.x, ob.grp.position.y, ob.grp.position.z, combo)
+        ev.onCollect(ob.o.id, { collected, combo, points, bonus: ORB_TIME })
         if (collected === orbs.length) {
           unlocked = true
           ev.onUnlock()
@@ -455,15 +595,18 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
       bm.opacity += (0.16 - bm.opacity) * dt * 2
       goal.rotation.z += dt
       const d = Math.hypot(pos.x - GOAL.x, pos.z - GOAL.z)
-      if (d < 1.8 && !won) {
+      if (d < 1.8 && running) {
         won = true
         squash = 0.5
-        fireBurst(GOAL.x, goalY + 1, GOAL.z)
-        ev.onWin(elapsed)
+        shake = 0.9
+        const bonus = WIN_POINTS + Math.floor(timeLeft) * WIN_TIME_POINTS
+        score += bonus
+        fireBurst(GOAL.x, goalY + 1, GOAL.z, COMBO_MAX)
+        ev.onWin({ score, bonus, left: timeLeft, seconds: elapsed })
       }
     }
 
-    // Burst
+    // Burst and shockwave
     if (burstLife > 0) {
       burstLife -= dt * 0.8
       for (let i = 0; i < BURST; i++) {
@@ -473,40 +616,81 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
         burstPos[i * 3 + 2] += burstVel[i * 3 + 2] * dt
       }
       burstGeo.attributes.position.needsUpdate = true
-      ;(burst.material as THREE.PointsMaterial).opacity = Math.max(0, burstLife)
+      burstMat.opacity = Math.max(0, burstLife)
+    }
+    if (ringLife > 0) {
+      ringLife -= dt * 2.2
+      const grow = 1 - Math.max(0, ringLife)
+      // Ease out, so it leaps out and then slows.
+      ring.scale.setScalar(0.5 + (1 - Math.pow(1 - grow, 3)) * 7)
+      ;(ring.material as THREE.MeshBasicMaterial).opacity = Math.max(0, ringLife) * 0.8
     }
 
-    // Camera: isometric follow with a little look-ahead, eased.
+    // Camera: isometric follow with a little look-ahead, eased. A boost widens the field of view.
     const target = new THREE.Vector3(pos.x - 11 + vel.x * 0.3, pos.y + 10.5, pos.z + 13 + vel.z * 0.3)
     const k = opts.reduced ? 1 : 1 - Math.pow(0.02, dt)
     camPos.lerp(target, k)
     camLook.lerp(new THREE.Vector3(pos.x + vel.x * 0.3, pos.y, pos.z + vel.z * 0.3), k)
     camera.position.copy(camPos)
+    // Light screen shake: decays fast and never runs under reduced motion.
+    shake *= Math.pow(0.004, dt)
+    if (!opts.reduced && shake > 0.01) {
+      camera.position.x += (Math.random() - 0.5) * shake * 0.7
+      camera.position.y += (Math.random() - 0.5) * shake * 0.7
+      camera.position.z += (Math.random() - 0.5) * shake * 0.7
+    }
     camera.lookAt(camLook)
+    const fovTarget = 45 + (opts.reduced ? 0 : boostEnv * 9)
+    if (Math.abs(camera.fov - fovTarget) > 0.05) {
+      camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 10)
+      camera.updateProjectionMatrix()
+    }
     sun.target.position.copy(pos)
     sun.position.set(pos.x - 20, pos.y + 30, pos.z + 12)
     sun.target.updateMatrixWorld()
+
+    // The page's heads-up display updates ten times a second, not every frame.
+    if (now - lastHud > 100) {
+      lastHud = now
+      ev.onTick(hudNow())
+    }
 
     renderer.render(scene, camera)
     raf = requestAnimationFrame(step)
   }
   raf = requestAnimationFrame(step)
 
-  const onVis = () => {
+  // The page decides when to pause (hidden tab, Escape, the pause card); the loop just stops and restarts cleanly.
+  const setPaused = (p: boolean) => {
+    if (p === paused) return
+    paused = p
     cancelAnimationFrame(raf)
-    if (!document.hidden) {
+    if (!p) {
       last = performance.now()
       raf = requestAnimationFrame(step)
     }
   }
-  document.addEventListener('visibilitychange', onVis)
+
+  // Dev only (stripped from the production build): lets a browser test jump to each ending without playing it out.
+  if (import.meta.env.DEV) {
+    ;(window as unknown as Record<string, unknown>).__minimum = {
+      grabAll() {
+        orbObjs.forEach((ob, i) => window.setTimeout(() => pos.set(ob.o.x, pos.y, ob.o.z), i * 250))
+      },
+      toGoal: () => pos.set(GOAL.x, pos.y, GOAL.z),
+      expire: () => (timeLeft = 0.05),
+    }
+  }
 
   return {
     setInput(x, z) {
       input.set(x, z)
     },
+    boost: doBoost,
+    setPaused,
     restart() {
       reset()
+      ev.onTick(hudNow())
     },
     dispose() {
       cancelAnimationFrame(raf)
@@ -514,7 +698,6 @@ export function mountWorld(canvas: HTMLCanvasElement, orbs: Orb[], ev: WorldEven
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKey)
       window.removeEventListener('blur', blur)
-      document.removeEventListener('visibilitychange', onVis)
       scene.traverse((o) => {
         const m = o as THREE.Mesh
         m.geometry?.dispose?.()

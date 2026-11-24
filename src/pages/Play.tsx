@@ -1,268 +1,120 @@
-import { useEffect, useRef, useState } from 'react'
-import { hasPage, projects } from '../data/projects'
-import type { Orb, WorldHandle } from '../three/playWorld'
-import { useReducedMotion } from '../components/motion'
+import { useEffect, useState, type ReactNode } from 'react'
+import { GAMES, type GameInfo } from '../play/games'
+import { loadBest } from '../play/storage'
+import { fmtScore } from '../play/math'
+import { PlayBar } from '../play/ui'
 
-// One orb per case study, scattered across valleys, ridges and the two traps.
-const SPOTS = [
-  [-12, 22],
-  [-15, -12],
-  [-14, 16],
-  [2, 8],
-  [24, 18],
-  [-4, -22],
-  [22, -24],
-]
-const ORBS: Orb[] = projects.filter(hasPage).map((p, i) => ({ id: p.slug, label: p.name, x: SPOTS[i][0], z: SPOTS[i][1] }))
+// Each card carries a small picture of its game: contours and a ball, a curve through dots, and clusters.
+const ART: Record<GameInfo['id'], ReactNode> = {
+  minimum: (
+    <svg viewBox="0 0 400 250" className="play-art h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+      {[150, 120, 92, 66, 42, 20].map((r, i) => (
+        <ellipse key={r} cx="250" cy="150" rx={r * 1.55} ry={r * 0.78} fill="none" stroke="#fff" strokeOpacity={0.16 + i * 0.05} strokeWidth="1.5" />
+      ))}
+      <circle cx="250" cy="150" r="9" fill="#ffd29a" />
+      <circle cx="250" cy="150" r="22" fill="#ffd29a" fillOpacity="0.18" />
+      <g>
+        <circle cx="116" cy="88" r="20" fill="#fff" />
+        <path d="M100 76c8 5 8 21 0 28M112 69c10 7 10 31 0 38M126 70c8 6 9 30 0 36" fill="none" stroke="#2f45ff" strokeWidth="6" strokeLinecap="round" />
+        <ellipse cx="116" cy="112" rx="20" ry="5" fill="#000" fillOpacity="0.25" />
+      </g>
+      <circle cx="318" cy="70" r="5" fill="#ffd29a" />
+      <circle cx="74" cy="178" r="5" fill="#ffd29a" />
+      <circle cx="338" cy="196" r="5" fill="#ffd29a" />
+    </svg>
+  ),
+  overfit: (
+    <svg viewBox="0 0 400 250" className="play-art h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+      <path d="M0 130C60 40 120 40 200 125S340 215 400 110" fill="none" stroke="#ffd29a" strokeOpacity="0.7" strokeWidth="2.5" strokeDasharray="2 8" strokeLinecap="round" />
+      <path d="M30 150L60 80L92 128L124 68L158 150L190 118L222 176L252 122L284 188L316 96L348 140L372 100" fill="none" stroke="#8c99ff" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" />
+      {[
+        [30, 150],
+        [60, 80],
+        [92, 128],
+        [124, 68],
+        [158, 150],
+        [190, 118],
+        [222, 176],
+        [252, 122],
+        [284, 188],
+        [316, 96],
+        [348, 140],
+        [372, 100],
+      ].map(([x, y]) => (
+        <circle key={x} cx={x} cy={y} r="6" fill="#fff" />
+      ))}
+      <circle cx="205" cy="150" r="7" fill="#0b0d1a" stroke="#ffd29a" strokeWidth="3" />
+    </svg>
+  ),
+  cluster: (
+    <svg viewBox="0 0 400 250" className="play-art h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+      {[
+        { c: '#8c99ff', x: 110, y: 90, pts: [[-26, -10], [-8, 14], [14, -22], [24, 8], [-14, -30], [6, 28], [-32, 18], [30, -12]] },
+        { c: '#ffd29a', x: 285, y: 80, pts: [[-24, 6], [-6, -20], [18, 14], [22, -12], [-16, 24], [4, 6], [28, 26], [-30, -14]] },
+        { c: '#7ee2c0', x: 205, y: 188, pts: [[-28, 4], [-8, -18], [12, 16], [26, -6], [-18, 22], [4, -4], [32, 18], [-4, 28]] },
+      ].map((g) => (
+        <g key={g.c}>
+          {g.pts.map(([dx, dy]) => (
+            <circle key={`${dx}${dy}`} cx={g.x + dx} cy={g.y + dy} r="5.5" fill={g.c} />
+          ))}
+          <circle cx={g.x} cy={g.y} r="14" fill={g.c} stroke="#fff" strokeWidth="3" />
+          <path d={`M${g.x - 5} ${g.y}h10M${g.x} ${g.y - 5}v10`} stroke="#0b0d1a" strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+      ))}
+    </svg>
+  ),
+}
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
-
-function loadBest(): number | null {
-  try {
-    const v = Number(localStorage.getItem('minimum-best'))
-    return v > 0 ? v : null
-  } catch {
-    return null
-  }
+const BG: Record<GameInfo['id'], string> = {
+  minimum: 'bg-[radial-gradient(90%_90%_at_70%_30%,#2f45ff_0%,#10143a_70%)]',
+  overfit: 'bg-[radial-gradient(90%_90%_at_30%_30%,rgb(255_210_154/0.5)_0%,#1a1522_75%)]',
+  cluster: 'bg-[radial-gradient(90%_90%_at_60%_60%,rgb(47_69_255/0.8)_0%,#0f1330_75%)]',
 }
 
 export function Play() {
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const world = useRef<WorldHandle | null>(null)
-  const reduced = useReducedMotion()
-  const [started, setStarted] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [found, setFound] = useState<string[]>([])
-  const [card, setCard] = useState<string | null>(null)
-  const [unlocked, setUnlocked] = useState(false)
-  const [time, setTime] = useState(0)
-  const [won, setWon] = useState<number | null>(null)
-  const [best, setBest] = useState<number | null>(null)
-  // dx/dy steer (clamped to the rim); sx/sy only draw the knob, which stretches a little past the rim.
-  const [stick, setStick] = useState<{ x: number; y: number; dx: number; dy: number; sx: number; sy: number } | null>(null)
-
-  useEffect(() => setBest(loadBest()), [])
-
-  useEffect(() => {
-    if (!started) return
-    const c = canvas.current
-    if (!c) return
-    let cancelled = false
-    import('../three/playWorld').then(({ mountWorld }) => {
-      if (cancelled) return
-      try {
-        world.current = mountWorld(
-          c,
-          ORBS,
-          {
-            onCollect: (id) => {
-              setFound((f) => [...f, id])
-              setCard(id)
-            },
-            onUnlock: () => setUnlocked(true),
-            onTick: (s) => setTime(s),
-            onWin: (s) => {
-              setWon(s)
-              const b = loadBest()
-              if (!b || s < b) {
-                try {
-                  localStorage.setItem('minimum-best', String(s))
-                } catch {
-                  /* private mode */
-                }
-                setBest(s)
-              }
-            },
-          },
-          { reduced },
-        )
-        c.focus()
-      } catch {
-        setFailed(true)
-      }
-    })
-    return () => {
-      cancelled = true
-      world.current?.dispose()
-      world.current = null
-    }
-  }, [started, reduced])
-
-  // Auto-hide the project card after a few seconds.
-  useEffect(() => {
-    if (!card) return
-    const id = setTimeout(() => setCard(null), 4200)
-    return () => clearTimeout(id)
-  }, [card])
-
-  const restart = () => {
-    world.current?.restart()
-    setFound([])
-    setUnlocked(false)
-    setWon(null)
-    setTime(0)
-    setCard(null)
-    canvas.current?.focus()
-  }
-
-  // Touch / pen: drag anywhere to steer (a virtual joystick).
-  const onDown = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse') return
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    setStick({ x: e.clientX, y: e.clientY, dx: 0, dy: 0, sx: 0, sy: 0 })
-  }
-  const onMove = (e: React.PointerEvent) => {
-    if (!stick) return
-    const rx = (e.clientX - stick.x) / 60
-    const ry = (e.clientY - stick.y) / 60
-    const dx = Math.max(-1, Math.min(1, rx))
-    const dy = Math.max(-1, Math.min(1, ry))
-    const m = Math.hypot(rx, ry)
-    const show = m > 1 ? (1 + 0.28 * (1 - Math.exp(-(m - 1) * 2.5))) / m : 1
-    setStick({ ...stick, dx, dy, sx: rx * show, sy: ry * show })
-    world.current?.setInput(dx, dy)
-  }
-  const onUp = () => {
-    setStick(null)
-    world.current?.setInput(0, 0)
-  }
-
-  const cardProject = projects.find((p) => p.slug === card)
+  const [bests, setBests] = useState<Record<string, number | null>>({})
+  useEffect(() => setBests(Object.fromEntries(GAMES.map((g) => [g.id, loadBest(g.id)]))), [])
 
   return (
-    <main id="main" className="dark relative h-[100svh] overflow-hidden bg-[#0b0d1a] text-fog">
-      <canvas
-        ref={canvas}
-        tabIndex={0}
-        aria-label="3D loss landscape. Use the arrow keys or WASD to roll the ball."
-        className="absolute inset-0 h-full w-full touch-none outline-none"
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-      />
+    <main id="main" className="dark min-h-[100svh] bg-[#0b0d1a] text-fog">
+      <PlayBar hub />
+      <div className="mx-auto w-full max-w-page px-5 pb-20 pt-6 sm:px-8 sm:pt-10 lg:px-12">
+        <p className="play-rise max-w-md text-lg text-fog/85">Three small games about how machines learn.</p>
+        <h1 className="play-rise mt-4 font-display text-[clamp(4rem,17vw,16rem)] font-semibold leading-[0.82] tracking-[-0.055em]" style={{ ['--i' as string]: 1 }}>
+          Play<span className="text-voltsoft">.</span>
+        </h1>
+        <p className="play-rise mt-6 max-w-xl text-fog/85" style={{ ['--i' as string]: 2 }}>
+          Each one takes a minute or two, and each is a bad idea in machine learning turned into a game: getting stuck, memorising the noise, drifting off-centre. Sound is off until you switch it on.
+        </p>
 
-      {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-5 sm:p-7">
-        <a href="/" className="pointer-events-auto flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold">
-          AS<span className="text-voltsoft">.</span>
-        </a>
-        {started && !won && (
-          <div className="text-right font-display tabular-nums">
-            <p className="text-4xl font-semibold leading-none sm:text-5xl">
-              <span key={found.length} className="inline-block origin-bottom-right" style={{ animation: found.length ? 'pop .4s cubic-bezier(.2,.8,.2,1.4)' : undefined }}>
-                {found.length}
-              </span>
-              <span className="text-mist">/{ORBS.length}</span>
-            </p>
-            <p className="mt-1 text-mist">{fmt(time)}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Start screen */}
-      {!started && (
-        <div className="absolute inset-0 flex flex-col justify-end bg-[radial-gradient(120%_80%_at_80%_10%,#2f45ff_0%,#0b0d1a_55%)] p-5 sm:p-10">
-          <p className="max-w-md text-lg text-fog/85">A small 3D game about how machine learning learns.</p>
-          <h1 className="mt-4 font-display text-[clamp(3.6rem,15vw,15rem)] font-semibold leading-[0.82] tracking-[-0.05em]">
-            Find the
-            <br />
-            minimum.
-          </h1>
-          <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <p className="max-w-xl text-fog/85">
-              You’re the optimiser: a ball on a loss landscape. Gravity pulls you downhill, but the obvious valleys are
-              traps. Roll over {ORBS.length} orbs, one for each of my projects, then find the global minimum. Arrow keys or
-              WASD on a keyboard; drag to steer on a phone.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => setStarted(true)} className="btn bg-white px-8 text-lg text-ink hover:bg-voltsoft">
-                Start rolling
-              </button>
-              <a href="/" className="btn border border-white/40 text-white hover:border-white">
-                Back to the site
+        <ul className="mt-12 grid gap-5 md:grid-cols-3">
+          {GAMES.map((g, i) => (
+            <li key={g.id} className="play-rise" style={{ ['--i' as string]: 3 + i }}>
+              <a href={g.path} className="play-card group flex h-full flex-col overflow-hidden rounded-3xl bg-white/[0.06] ring-1 ring-white/10 hover:bg-white/[0.09]">
+                <div className={`aspect-[16/10] overflow-hidden ${BG[g.id]}`}>{ART[g.id]}</div>
+                <div className="flex flex-1 flex-col p-6">
+                  <h2 className="font-display text-3xl font-semibold tracking-[-0.025em]">{g.title}</h2>
+                  <p className="mt-2 flex-1 text-fog/75">{g.blurb}</p>
+                  <div className="mt-5 flex items-center justify-between gap-3 text-sm text-mist">
+                    <span>
+                      {g.time}
+                      {bests[g.id] ? ` · best ${fmtScore(bests[g.id]!)}` : ''}
+                    </span>
+                    <span className="btn min-h-[44px] bg-white px-5 text-ink group-hover:bg-voltsoft">Play</span>
+                  </div>
+                </div>
               </a>
-            </div>
-          </div>
-          {best && <p className="mt-6 text-sm text-mist">Your best: {fmt(best)}</p>}
-        </div>
-      )}
+            </li>
+          ))}
+        </ul>
 
-      {failed && (
-        <div className="absolute inset-0 grid place-items-center p-6 text-center">
-          <p className="max-w-md">
-            This game needs WebGL, which your browser has turned off.{' '}
-            <a href="/#work" className="link">
-              See the projects instead
-            </a>
-            .
-          </p>
-        </div>
-      )}
-
-      {/* Project card on pickup */}
-      {cardProject && !won && (
-        <div
-          key={card}
-          role="status"
-          style={{ animation: 'pop .45s cubic-bezier(.2,.8,.2,1.4), card-out .35s ease-in 3.8s forwards' }}
-          className="absolute inset-x-0 bottom-24 mx-auto w-[min(28rem,calc(100%-2rem))] origin-bottom rounded-3xl bg-white p-6 text-ink shadow-2xl"
-        >
-          <p className="text-sm text-slate">
-            Found {found.length} of {ORBS.length}
-          </p>
-          <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.02em]">{cardProject.name}</p>
-          <p className="mt-2 text-slate">{cardProject.tagline}</p>
-          <a href={`/work/${cardProject.slug}/`} className="link mt-3 inline-flex min-h-[44px] items-center font-medium">
-            Read the case study
+        <p className="mt-12 text-sm text-mist">
+          Made by Atharva Shirke.{' '}
+          <a href="/" className="link inline-flex min-h-[44px] items-center">
+            Back to the site
           </a>
-        </div>
-      )}
-
-      {/* Unlock hint */}
-      {unlocked && !won && !cardProject && (
-        <p role="status" style={{ animation: 'pop .45s cubic-bezier(.2,.8,.2,1.4)' }} className="absolute inset-x-0 bottom-24 mx-auto w-max max-w-[calc(100%-2rem)] origin-bottom rounded-full bg-voltsoft px-5 py-3 text-center font-medium text-ink">
-          All found. Follow the beam of light to the global minimum.
         </p>
-      )}
-
-      {/* Controls hint */}
-      {started && !won && (
-        <p className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-center text-sm text-mist">
-          <span className="hidden sm:inline">Arrow keys or WASD to roll</span>
-          <span className="sm:hidden">Drag anywhere to steer</span>
-        </p>
-      )}
-
-      {/* Touch joystick */}
-      {stick && (
-        <div aria-hidden="true" className="pointer-events-none fixed h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" style={{ left: stick.x, top: stick.y }}>
-          <div className="absolute left-1/2 top-1/2 h-10 w-10 rounded-full bg-white/80" style={{ transform: `translate(calc(-50% + ${stick.sx * 30}px), calc(-50% + ${stick.sy * 30}px))` }} />
-        </div>
-      )}
-
-      {/* Win */}
-      {won !== null && (
-        <div className="absolute inset-0 flex flex-col justify-end bg-[#0b0d1a]/70 p-5 backdrop-blur-sm sm:p-10" style={{ animation: 'fade-in .5s ease-out both' }}>
-          <p className="text-lg text-fog/85">Converged.</p>
-          <h2 style={{ animation: 'pop .7s cubic-bezier(.2,.8,.2,1.4) .15s both' }} className="mt-3 origin-bottom-left font-display text-[clamp(3.6rem,14vw,13rem)] font-semibold leading-[0.85] tracking-[-0.05em]">{fmt(won)}</h2>
-          <p className="mt-4 text-fog/85">
-            {best !== null && won <= best ? 'A new best time.' : best !== null ? `Your best is ${fmt(best)}.` : ''} You found
-            all {ORBS.length} projects and reached the global minimum.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3" style={{ animation: 'fade-up .6s cubic-bezier(.2,.7,.2,1) .5s both' }}>
-            <button onClick={restart} className="btn bg-white text-ink hover:bg-voltsoft">
-              Play again
-            </button>
-            <a href="/#work" className="btn border border-white/40 text-white hover:border-white">
-              See the projects
-            </a>
-            <a href="/#contact" className="btn border border-white/40 text-white hover:border-white">
-              Get in touch
-            </a>
-          </div>
-        </div>
-      )}
+      </div>
     </main>
   )
 }
