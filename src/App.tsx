@@ -16,7 +16,6 @@ import { NotFound } from './pages/NotFound'
 import { projects } from './data/projects'
 import { normalise } from './routes'
 
-const HOME_IS_404 = true
 
 function SkipLink() {
   return (
@@ -105,8 +104,7 @@ export default function App({ path }: { path: string }) {
   }
 
   // Anything else that isn't the home page is a 404 (Netlify serves dist/404.html for it).
-  // For now the home page shows the 404 too, while the site is being reworked: set HOME_IS_404 to false to bring it back.
-  if (route !== '/' || HOME_IS_404) {
+  if (route !== '/') {
     return (
       <>
         <SkipLink />
