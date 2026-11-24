@@ -73,7 +73,7 @@ const BG: Record<GameInfo['id'], string> = {
 
 export function Play() {
   const [bests, setBests] = useState<Record<string, number | null>>({})
-  useEffect(() => setBests(Object.fromEntries(GAMES.map((g) => [g.id, loadBest(g.id)]))), [])
+  useEffect(() => setBests(Object.fromEntries(GAMES.map((g) => [g.id, loadBest(g.bestKey ?? g.id)]))), [])
 
   return (
     <main id="main" className="dark min-h-[100svh] bg-[#0b0d1a] text-fog">

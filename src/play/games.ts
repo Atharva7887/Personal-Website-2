@@ -14,6 +14,8 @@ export interface GameInfo {
   /** Where the intro's colour glow sits, so the three screens feel related but not identical. */
   glow: string
   startLabel: string
+  /** Where the best score is stored, when it differs from the id (a game whose scoring changed). */
+  bestKey?: string
 }
 
 export const GAMES: GameInfo[] = [
@@ -34,12 +36,13 @@ export const GAMES: GameInfo[] = [
     path: '/play/overfit/',
     title: 'Overfit',
     kicker: 'A game about the one mistake every model makes.',
-    blurb: 'Fit a curve through noisy points, then watch hidden validation data judge you. Memorise the noise and it shows.',
-    how: 'Tap to drop points and a curve bends through them. Training loss will happily fall to zero if you chase every dot. Then the hidden validation points are revealed, and a curve that memorised the noise gets punished. Three rounds, each noisier than the last.',
+    blurb: 'One slider, five mystery shapes. Make the curve wiggly enough to catch the pattern, but not so wiggly it memorises the noise.',
+    how: 'Each round hides a shape (a line, a bowl, a wave…) behind noisy dots. Drag the wiggliness slider and the curve fits itself to the dots. The more wiggly, the better it fits the dots you see, so it’s tempting to max it out. Lock it in and new dots from the same shape drop in: a curve that chased the noise misses them. Five rounds, 15 seconds each.',
     time: '60–90 s',
-    controls: 'Tap or click to place, drag to move, tap a point to remove it. Keyboard works too.',
+    controls: 'Drag the slider, or use the arrow keys. Enter locks it in.',
     glow: 'radial-gradient(110% 80% at 15% 15%, rgb(255 210 154 / 0.55) 0%, #0b0d1a 58%)',
     startLabel: 'Start fitting',
+    bestKey: 'overfit-v2', // scores out of 1,000 since the slider version; the old game scored out of 3,000
   },
   {
     id: 'cluster',
