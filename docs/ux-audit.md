@@ -35,6 +35,24 @@ Status: **Pass** (already right), **Fixed** (changed here), **N/A**, **Left** (d
 | Frequency of use | Pass | "Let's talk" and Work/Services/About sit in the header and the dock |
 | Peak-end | Fixed | The ending is now its own moment (`Footer.tsx`): "Let’s build something." over a slow ink and volt shader gradient, the 64 px email pill, link groups, an "outlier, p < 0.05" line and the name set across the full width that lifts letter by letter toward the pointer. Hero entrance stays the peak; this is the end |
 
+## Work folders (home, `#work`)
+
+| Item | Status | Evidence |
+|---|---|---|
+| Anticipation | Pass | Clicking a folder raises its papers further before the panel grows (`work.css`, `aria-expanded` state) |
+| Follow-through, overlap | Pass | Three papers fan out 45 ms apart with a slight overshoot (`--delay`, `--paper-ease`) |
+| Slow in / slow out | Pass | Panel opens by growing its row, `cubic-bezier(.65,0,.35,1)` 500 ms; accordions use the same |
+| Origin awareness | Pass | Papers pivot from their bottom edge; the panel opens under the row that was clicked, so it grows out of the folder |
+| Interruptible | Pass | Fan, lean and lift are transitions on transform, so leaving mid-hover turns back from where it is; clicking another folder swaps the panel's content with a short rise |
+| Squash and stretch | Pass | Folder front and arrow square squeeze on press |
+| Fitts | Pass | Whole folder is the button, arrow square 44 px, close 44 px, accordion rows 52 px, panel links 44 px |
+| Hick | Pass | One open panel at a time, two accordions, the first open |
+| Von Restorff | Pass | The dark arrow square is the only solid dark thing on each folder |
+| Keyboard | Pass | Folders are buttons with `aria-expanded`/`aria-controls`; Enter opens and moves focus to the panel heading, Escape or x closes and returns focus to the folder (checked in headless Chrome) |
+| Reduced motion | Pass | No lean, fan or panel transition; panel opens instantly |
+| Without JS | Pass | Prerender holds every folder and a `noscript` link to each case study |
+| Phone | Pass | One snap-scrolling strip of folders, panel below it; no horizontal page scroll at 375 px |
+
 ## Studio (`/studio/`)
 
 | Item | Status | Evidence |
@@ -136,4 +154,4 @@ Status: **Pass** (already right), **Fixed** (changed here), **N/A**, **Left** (d
 - Three.js camera limits, orbit and walk collisions (`src/three/**`): out of scope.
 - Inline links in running text (credits, 404 sentence) stay under 44 px high; their own rows or buttons carry the target.
 - The Studio stop list is still 12 rows while a card is open (dimmed, grouped by place); collapsing it would hide the frequent jump-to action on desktop. It is hidden under 768 px.
-- The Work list keeps seven equal rows: they are the portfolio.
+- The Work folders are seven equal cards (no featured project): they are the portfolio. Papers that are not real screenshots are drawn sheets, not invented screenshots.
