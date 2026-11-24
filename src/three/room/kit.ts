@@ -12,7 +12,26 @@ export function makeKit(scene: THREE.Scene) {
   }
   const rand = mulberry32(2026)
 
-  const mat = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => track(new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...extra }))
+  // Materials with the same colour and settings are one shared material (fewer programs and state changes,
+  // and it lets static meshes be merged). Anything whose properties are changed later (emissive glow, a
+  // colour set on hover) must pass { unique: true } or be made with `new` directly.
+  const matCache = new Map<string, THREE.MeshStandardMaterial>()
+  const matKey = (color: string, extra: THREE.MeshStandardMaterialParameters) =>
+    color +
+    Object.entries(extra)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([k, v]: [string, any]) => `|${k}=${v && v.isTexture ? v.uuid : v && v.isColor ? v.getHexString() : String(v)}`) // textures by identity, never serialised
+      .join('')
+  const mat = (color: string, extra: THREE.MeshStandardMaterialParameters = {}, opts: { unique?: boolean } = {}) => {
+    if (opts.unique) return track(new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...extra }))
+    const key = matKey(color, extra)
+    let m = matCache.get(key)
+    if (!m) {
+      m = track(new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...extra }))
+      matCache.set(key, m)
+    }
+    return m
+  }
 
   const mesh = (geo: THREE.BufferGeometry, m: Mats, x: number, y: number, z: number, parent: THREE.Object3D = scene) => {
     track(geo)

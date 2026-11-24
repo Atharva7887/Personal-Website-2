@@ -73,8 +73,8 @@ const STOPS: Stop[] = [
     id: 'arcade',
     label: 'Arcade',
     title: 'Take a break',
-    body: 'A small 3D game about how machine learning learns: roll down a loss landscape and find the global minimum.',
-    link: { label: 'Play Find the minimum', href: '/play/' },
+    body: 'Three small games about how machine learning learns: roll down a loss landscape, fit a curve without overfitting, and herd the centroids.',
+    link: { label: 'Play the games', href: '/play/' },
   },
   {
     id: 'door',
@@ -342,7 +342,7 @@ export function Studio() {
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-7">
         <div className="pointer-events-auto flex flex-col items-start">
-          <a href="/" className="flex min-h-[44px] items-center font-display text-lg font-semibold">
+          <a href="/" className="flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold">
             AS<span className={dark ? 'text-voltsoft' : 'text-volt'}>.</span>
           </a>
           <button
@@ -395,7 +395,7 @@ export function Studio() {
                 onClick={() => (p.id ? (walking ? walkIn(p.id) : standIn(p.id)) : overview())}
                 aria-current={here ? 'location' : undefined}
                 className={
-                  'min-h-[40px] whitespace-nowrap rounded-full px-4 transition-colors ' +
+                  'min-h-[44px] whitespace-nowrap rounded-full px-4 transition-[background-color,color,transform] active:scale-[0.95] ' +
                   (here ? (dark ? 'bg-white text-ink' : 'bg-ink text-fog') : dark ? 'hover:bg-white/15' : 'hover:bg-white')
                 }
               >
@@ -408,7 +408,7 @@ export function Studio() {
             onClick={() => (walking ? standIn(place ?? 'room') : walkIn(place ?? 'room'))}
             aria-pressed={walking}
             className={
-              'flex min-h-[40px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 transition-colors ' +
+              'flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 transition-[background-color,color,transform] active:scale-[0.95] ' +
               (walking ? 'bg-volt text-white' : dark ? 'hover:bg-white/15' : 'hover:bg-white')
             }
           >
@@ -425,7 +425,7 @@ export function Studio() {
         <section
           id="studio-credits"
           aria-label="3D model credits"
-          className="absolute left-4 top-28 z-10 max-h-[calc(100svh-8rem)] w-[min(22rem,calc(100vw-2rem))] animate-[pop_.4s_cubic-bezier(.2,.8,.2,1.3)] overflow-auto rounded-3xl bg-white p-6 text-sm text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:left-7"
+          className="absolute left-4 top-28 z-10 max-h-[calc(100svh-8rem)] w-[min(22rem,calc(100vw-2rem))] origin-top-left animate-[pop_.4s_cubic-bezier(.2,.8,.2,1.3)] overscroll-contain overflow-auto rounded-3xl bg-white p-6 text-sm text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:left-7"
         >
           <h2 className="font-display text-xl font-semibold">3D model credits</h2>
           <p className="mt-2 text-slate">
@@ -536,11 +536,11 @@ export function Studio() {
 
       {stop && (
         <section
-          key={stop.id}
           aria-live="polite"
-          style={{ animation: `${dir > 0 ? 'card-from-below' : 'card-from-above'} .6s cubic-bezier(.2,.8,.2,1) both` }}
-          className="studio-card absolute bottom-4 left-4 right-4 rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7"
+          style={{ animation: 'card-from-below .6s cubic-bezier(.2,.8,.2,1) both' }}
+          className="studio-card absolute bottom-4 left-4 right-4 rounded-3xl bg-white p-6 text-ink shadow-[0_20px_60px_-20px_rgba(12,15,20,.5)] sm:bottom-8 sm:left-8 sm:right-auto sm:w-[26rem] sm:p-7 origin-bottom-left"
         >
+          <div key={stop.id} className="studio-swap" style={{ animation: `${dir > 0 ? 'swap-from-below' : 'swap-from-above'} .38s cubic-bezier(.2,.8,.2,1) both` }}>
           {touring && (
             <p className="text-sm tabular-nums text-slate">
               {tourIndex + 1} of {STOPS.length}
@@ -549,10 +549,15 @@ export function Studio() {
           <h2 className="mt-1 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">{stop.title}</h2>
           <p className="mt-3 text-slate">{stop.body}</p>
           {stop.link && (
-            <a href={stop.link.href} className="link mt-3 inline-flex min-h-[44px] items-center font-medium">
+            // The last stop is the ending of the tour, so its one action is a real button: the thing to remember and do.
+            <a
+              href={stop.link.href}
+              className={tourIndex === STOPS.length - 1 ? 'btn mt-4 bg-volt px-6 text-white hover:bg-ink' : 'link mt-3 inline-flex min-h-[44px] items-center font-medium'}
+            >
               {stop.link.label}
             </a>
           )}
+          </div>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
             <button onClick={() => step(-1)} className="btn btn-ghost min-h-[44px] px-4 text-sm">
               Back
@@ -570,7 +575,7 @@ export function Studio() {
       )}
 
       {entered && !walking && (
-        <nav aria-label="Things in the room" className="absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto sm:right-7 md:block">
+        <nav aria-label="Things in the room" className={'absolute right-4 top-32 hidden max-h-[calc(100svh-10rem)] overflow-auto overscroll-contain transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100 sm:right-7 md:block ' + (stop ? 'opacity-60' : '')}>
           {PLACES.map((pl) => (
             <div key={pl.id} className="mb-3">
               <p className={'mb-1.5 w-max rounded-full px-2 text-xs font-medium uppercase tracking-[0.12em] ' + (dark ? 'bg-[#0b0d1a]/60 text-fog/70' : 'bg-white/85 text-slate')}>{pl.label}</p>
@@ -584,7 +589,7 @@ export function Studio() {
                   }}
                   aria-current={active === s.id}
                   className={
-                    'flex min-h-[40px] w-full items-center gap-2 rounded-full px-4 text-left text-sm font-medium transition-colors ' +
+                    'flex min-h-[44px] w-full items-center gap-2 rounded-full px-4 text-left text-sm font-medium transition-[background-color,color,transform] active:scale-[0.97] ' +
                     (active === s.id || hover === s.id
                       ? dark
                         ? 'bg-white text-ink'
@@ -619,7 +624,7 @@ export function Studio() {
           ) : (
             <>
               <span className="[@media(hover:none)]:hidden">
-                {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything
+                {place ? 'Drag to look around' : 'Drag to turn the room'} · scroll to walk through it · click anything · Ctrl + / − to zoom
               </span>
               <span className="hidden [@media(hover:none)]:inline">{place ? 'Drag to look around' : 'Drag to turn the room'} · tap anything</span>
             </>
@@ -645,7 +650,7 @@ export function Studio() {
         <div className="absolute bottom-16 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/80 py-1.5 pl-4 pr-1.5 text-sm text-fog backdrop-blur">
           <span className="[@media(hover:none)]:hidden">{seatedOn ? 'Press E or take a step to stand up' : `Press E to sit on ${seatNear}`}</span>
           <span className="hidden [@media(hover:none)]:inline">{seatedOn ? `Sitting on ${seatedOn}` : `Sit on ${seatNear}?`}</span>
-          <button onClick={() => room.current?.toggleSit()} className="min-h-[36px] rounded-full bg-white px-4 font-medium text-ink">
+          <button onClick={() => room.current?.toggleSit()} className="min-h-[44px] rounded-full bg-white px-4 font-medium text-ink transition-transform active:scale-[0.94]">
             {seatedOn ? 'Stand up' : 'Sit'}
           </button>
         </div>
@@ -736,12 +741,17 @@ function StudioLoader({ progress, done, dark }: { progress: number; done: boolea
 function WalkStick({ onMove, dark }: { onMove: (x: number, y: number) => void; dark: boolean }) {
   const knob = useRef<HTMLSpanElement>(null)
   const R = 44
-  const set = (dx: number, dy: number) => {
+  // The walk input stops dead at the rim, but the knob itself stretches a little past it and snaps back (rubber band).
+  const set = (dx: number, dy: number, release = false) => {
     const d = Math.hypot(dx, dy)
     const k = d > R ? R / d : 1
     const x = dx * k
     const y = dy * k
-    if (knob.current) knob.current.style.transform = `translate(${x}px, ${y}px)`
+    const show = d > R ? (R + R * 0.28 * (1 - Math.exp(-((d - R) / R) * 2.5))) / d : 1
+    if (knob.current) {
+      knob.current.style.transition = release ? 'transform .4s cubic-bezier(.2,.8,.2,1.5)' : 'none'
+      knob.current.style.transform = `translate(${dx * show}px, ${dy * show}px)`
+    }
     onMove(x / R, -y / R)
   }
   const centre = (el: HTMLElement) => {
@@ -762,8 +772,8 @@ function WalkStick({ onMove, dark }: { onMove: (x: number, y: number) => void; d
         const c = centre(e.currentTarget)
         set(e.clientX - c.x, e.clientY - c.y)
       }}
-      onPointerUp={() => set(0, 0)}
-      onPointerCancel={() => set(0, 0)}
+      onPointerUp={() => set(0, 0, true)}
+      onPointerCancel={() => set(0, 0, true)}
     >
       <span ref={knob} className={'h-12 w-12 rounded-full shadow ' + (dark ? 'bg-white' : 'bg-ink')} />
     </div>

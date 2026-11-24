@@ -1,9 +1,7 @@
 import portrait from '../assets/portrait.webp'
 import { useState } from 'react'
 import { certifications, education, experience, research, services, skillGroups } from '../data/profile'
-import { EMAIL, GITHUB_URL, LINKEDIN_URL, NAME, RESUME_URL } from '../data/site'
-import { CopyEmail } from './CopyEmail'
-import { useMagnet, useReveals } from './motion'
+import { useReveals } from './motion'
 import { ShapeIcon } from './ShapeIcon'
 
 export function Services() {
@@ -124,54 +122,6 @@ export function About() {
           </ul>
         </div>
       </div>
-    </section>
-  )
-}
-
-export function Contact() {
-  const ref = useReveals<HTMLElement>()
-  const mail = useMagnet<HTMLSpanElement>(0.2)
-  return (
-    <section id="contact" ref={ref} className="dark bg-volt text-white">
-      <div className="page py-24 sm:py-36">
-        <p className="text-lg text-white">Have a project in mind?</p>
-        <h2 className="reveal mt-4 text-[clamp(3.2rem,11vw,11rem)] font-semibold leading-[0.85] tracking-[-0.045em]">
-          Let’s work together.
-        </h2>
-        <span ref={mail} className="mt-12 inline-block">
-          <a
-            href={`mailto:${EMAIL}`}
-            className="inline-flex min-h-[64px] items-center gap-4 rounded-full bg-white px-8 font-display text-[clamp(1.1rem,3vw,2rem)] font-medium text-ink transition-[background-color,color,transform] duration-200 hover:bg-ink hover:text-white active:scale-[0.96]"
-          >
-            {EMAIL}
-          </a>
-        </span>
-        <CopyEmail className="btn ml-0 mt-4 border border-white/50 text-white hover:bg-white hover:text-ink sm:ml-3" />
-        <ul className="mt-10 flex flex-wrap gap-x-8 text-lg">
-          <li>
-            <a className="link inline-flex min-h-[44px] items-center" href={LINKEDIN_URL}>LinkedIn</a>
-          </li>
-          <li>
-            <a className="link inline-flex min-h-[44px] items-center" href={GITHUB_URL}>GitHub</a>
-          </li>
-          {RESUME_URL && (
-            <li>
-              <a className="link inline-flex min-h-[44px] items-center" href={RESUME_URL} download data-goatcounter-click="resume-download">Résumé (PDF)</a>
-            </li>
-          )}
-        </ul>
-      </div>
-      <footer className="page">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-5 text-sm text-white/85">
-          <p>© 2026 {NAME}</p>
-          <span className="flex gap-6">
-            <a href="/studio/" className="link inline-flex min-h-[44px] items-center">Studio</a>
-            <a href="/play/" className="link inline-flex min-h-[44px] items-center">Play: find the minimum</a>
-            <a href="/sitemap/" className="link inline-flex min-h-[44px] items-center">Sitemap</a>
-          </span>
-          <a href="/#top" className="link inline-flex min-h-[44px] items-center">Back to top</a>
-        </div>
-      </footer>
     </section>
   )
 }

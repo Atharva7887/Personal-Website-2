@@ -1,5 +1,5 @@
 import { hasPage, projects, type Project } from '../data/projects'
-import { Contact } from '../components/Sections'
+import { Footer } from '../components/Footer'
 import { ParticleCanvas } from '../components/ParticleCanvas'
 import { SubpageHeader } from '../components/SubpageHeader'
 
@@ -17,7 +17,7 @@ export function CaseStudy({ project: p }: { project: Project }) {
           <header className="page grid gap-10 pb-14 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
             <div>
               <p className="text-slate">
-                <a href="/#work" className="link">
+                <a href="/#work" className="link inline-flex min-h-[44px] min-w-[44px] items-center">
                   Work
                 </a>{' '}
                 / {p.kind}, {p.year}
@@ -110,15 +110,15 @@ export function CaseStudy({ project: p }: { project: Project }) {
               <span className="text-slate">Next project</span>
               <span className="mt-2 block text-[clamp(2.4rem,7vw,6rem)] font-semibold leading-none tracking-[-0.04em] transition-colors group-hover:text-volt">
                 {next.name}
-                <span aria-hidden="true" className="ml-3 inline-block transition-transform duration-300 group-hover:translate-x-3">
+                <span aria-hidden="true" className="ml-3 inline-block transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1.4)] group-hover:translate-x-3 group-active:translate-x-5">
                   ›
                 </span>
               </span>
             </a>
           </nav>
         </article>
-        <Contact />
       </main>
+      <Footer />
     </>
   )
 }

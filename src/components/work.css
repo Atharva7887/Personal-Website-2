@@ -1,0 +1,111 @@
+/* Work folders. Plain CSS (not Tailwind) because the layers, the fan and the
+   tilt need to read together. Everything moves through transitions on
+   transform, so a hover that is let go of half-way turns back from where it is. */
+
+.folder {
+  --paper-ease: cubic-bezier(0.2, 0.8, 0.2, 1.12);
+  perspective: 900px;
+}
+
+.folder-tilt {
+  position: relative;
+  aspect-ratio: 5 / 4;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Back panel with its tab. */
+.folder-back {
+  position: absolute;
+  inset: 12% 0 0 0;
+  border-radius: 1.25rem;
+  background: #aeb4bf;
+  box-shadow: 0 22px 32px -16px rgba(0, 0, 0, 0.7);
+}
+.folder-back::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -9%;
+  width: 40%;
+  height: 12%;
+  border-radius: 0.9rem 0.9rem 0 0;
+  background: #aeb4bf;
+}
+
+/* Papers sit between the back and the front; their bottoms hide behind the front. */
+.paper {
+  position: absolute;
+  bottom: 36%;
+  height: 74%;
+  overflow: hidden;
+  border-radius: 0.6rem 0.6rem 0 0;
+  background: #f6f7f9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transform-origin: 50% 100%;
+  transform: translateZ(8px) translateY(var(--lift, 0%)) rotate(var(--rot));
+  transition: transform 0.55s var(--paper-ease);
+  transition-delay: var(--delay, 0ms);
+}
+.paper-a { left: 4%; width: 52%; --rot: -6deg; --delay: 0ms; }
+.paper-b { left: 22%; width: 56%; --rot: 1.5deg; --delay: 45ms; height: 80%; }
+.paper-c { right: 3%; width: 46%; --rot: 7deg; --delay: 90ms; }
+
+/* Fan out on hover or keyboard focus; the opened folder keeps its papers raised. */
+@media (hover: hover) {
+  .folder-btn:hover .paper-a { --rot: -15deg; --lift: -12%; }
+  .folder-btn:hover .paper-b { --rot: 0deg; --lift: -22%; }
+  .folder-btn:hover .paper-c { --rot: 16deg; --lift: -12%; }
+  .folder-btn:hover .folder-front { transform: translateZ(14px) translateY(-3px); }
+}
+.folder-btn:focus-visible .paper-a { --rot: -15deg; --lift: -12%; }
+.folder-btn:focus-visible .paper-b { --rot: 0deg; --lift: -22%; }
+.folder-btn:focus-visible .paper-c { --rot: 16deg; --lift: -12%; }
+.folder-btn[aria-expanded='true'] .paper-a { --rot: -9deg; --lift: -20%; }
+.folder-btn[aria-expanded='true'] .paper-b { --rot: 0deg; --lift: -28%; }
+.folder-btn[aria-expanded='true'] .paper-c { --rot: 10deg; --lift: -20%; }
+.folder-btn:active .folder-front { transform: translateZ(14px) scale(0.985); }
+
+.folder-front {
+  position: absolute;
+  inset: 40% 0 0 0;
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #eceef2 0%, #d3d7de 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 -6px 14px -6px rgba(0, 0, 0, 0.35);
+  transform: translateZ(14px);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The panel opens by growing its row, the usual slow in and slow out. */
+.wp {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 0.35s ease-out;
+}
+.wp.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.wp > div { min-height: 0; overflow: hidden; }
+
+.wp-swap { animation: wp-swap 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes wp-swap {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 639px) {
+  .folder-scroller { scrollbar-width: none; }
+  .folder-scroller::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folder-tilt, .paper, .folder-front, .wp, .wp-swap { transition: none !important; animation: none !important; }
+  .wp { opacity: 1; }
+}

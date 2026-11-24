@@ -4,9 +4,12 @@ import { Dock } from './components/Dock'
 import { Marquee } from './components/Marquee'
 import { Work } from './components/Work'
 import { OffTheClock } from './components/OffTheClock'
-import { About, Contact, Services } from './components/Sections'
+import { About, Services } from './components/Sections'
+import { Footer } from './components/Footer'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
+import { PlayGame } from './play/LazyGame'
+import { GAMES } from './play/games'
 import { Studio } from './pages/Studio'
 import { SitemapPage } from './pages/SitemapPage'
 import { NotFound } from './pages/NotFound'
@@ -79,6 +82,16 @@ export default function App({ path }: { path: string }) {
     )
   }
 
+  const game = GAMES.find((g) => g.path === route)
+  if (game) {
+    return (
+      <>
+        <SkipLink />
+        <PlayGame id={game.id} />
+      </>
+    )
+  }
+
   const match = route.match(/^\/work\/([^/]+)\/$/)
   const project = match && projects.find((p) => p.slug === match[1] && p.sections)
   if (project) {
@@ -116,8 +129,8 @@ export default function App({ path }: { path: string }) {
         <Services />
         <About />
         <OffTheClock />
-        <Contact />
       </main>
+      <Footer />
     </>
   )
 }

@@ -1,4 +1,5 @@
 import { hasPage, projects, type Project } from './data/projects'
+import { GAMES } from './play/games'
 import { EMAIL, GITHUB_URL, LINKEDIN_URL, SITE_URL } from './data/site'
 
 export interface RouteMeta {
@@ -165,15 +166,36 @@ export const routes: RouteMeta[] = [
   },
   {
     path: '/play/',
-    title: 'Find the minimum — a 3D game by Atharva Shirke',
+    title: 'Play: three small machine-learning games — Atharva Shirke',
     description:
-      'A small 3D game about how machine learning learns, by Atharva Shirke: roll a ball across a loss landscape, collect the projects and find the global minimum.',
+      'Three small browser games about how machine learning learns, by Atharva Shirke: roll down a loss landscape, fit a curve without overfitting, and herd the centroids in k-means.',
+    ogImage: '/og/play.png',
+    jsonld: [
+      {
+        '@type': 'CollectionPage',
+        url: absolute('/play/'),
+        name: 'Play',
+        author: { '@id': PERSON_ID },
+        isPartOf: { '@id': SITE_ID },
+        hasPart: GAMES.map((g) => ({ '@type': 'VideoGame', name: g.title, url: absolute(g.path) })),
+      },
+      crumbs([
+        ['Atharva Shirke', '/'],
+        ['Play', '/play/'],
+      ]),
+      person,
+    ],
+  },
+  ...GAMES.map((g) => ({
+    path: g.path,
+    title: `${g.title}: a small machine-learning game by Atharva Shirke`,
+    description: `${g.blurb} ${g.kicker}`.slice(0, 200),
     ogImage: '/og/play.png',
     jsonld: [
       {
         '@type': 'VideoGame',
-        name: 'Find the minimum',
-        url: absolute('/play/'),
+        name: g.title,
+        url: absolute(g.path),
         author: { '@id': PERSON_ID },
         gamePlatform: 'Web browser',
         genre: 'Educational',
@@ -183,14 +205,15 @@ export const routes: RouteMeta[] = [
       crumbs([
         ['Atharva Shirke', '/'],
         ['Play', '/play/'],
+        [g.title, g.path],
       ]),
       person,
     ],
-  },
+  })),
   {
     path: '/sitemap/',
     title: 'Sitemap — Atharva Shirke',
-    description: 'Every page on Atharva Shirke’s website: work, case studies, the 3D studio and the game.',
+    description: 'Every page on Atharva Shirke’s website: work, case studies, the 3D studio and the games.',
     ogImage: '/og.png',
     jsonld: [
       crumbs([

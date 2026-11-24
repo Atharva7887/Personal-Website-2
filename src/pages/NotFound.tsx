@@ -192,7 +192,7 @@ export function NotFound() {
   return (
     <main id="main" className="relative flex min-h-[100svh] flex-col bg-fog text-ink">
       <header className="flex items-center justify-between p-5 sm:p-7">
-        <a href="/" className="flex min-h-[44px] items-center font-display text-lg font-semibold">
+        <a href="/" className="flex min-h-[44px] min-w-[44px] items-center font-display text-lg font-semibold">
           AS<span className="text-volt">.</span>
         </a>
         <p className="text-sm tabular-nums text-slate">Error 404</p>

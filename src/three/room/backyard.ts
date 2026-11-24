@@ -1,10 +1,9 @@
 import * as THREE from 'three'
 import type { Kit } from './kit'
 import { woodTexture } from './textures'
-import { DECK, GARDEN, NEIGHBOUR, SHED, isFree } from './layout'
+import { DECK, GARDEN, PROPERTY, SHED, inHouse, isFree } from './layout'
 
-// The backyard: a timber deck outside the door, a shed in the corner, the neighbour's house over the back
-// hedge, and a dog who wanders the lawn. All built here, in the room's own style.
+// The backyard: a timber deck outside the door, a shed in the corner, and a dog who wanders the lawn. All built here, in the room's own style.
 
 export function buildBackyard(k: Kit, garden: THREE.Group) {
   const { track, rand, mat, mesh, box, tbox } = k
@@ -85,75 +84,13 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
   const spout = mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.32, 8), can.material as THREE.Material, -1.2, 0.27, SHED.d / 2 + 0.4, shed)
   spout.rotation.z = 0.9
 
-  // ---------- The neighbour's house, over the back hedge ----------
-  const nb = new THREE.Group()
-  nb.name = 'Neighbour'
-  garden.add(nb)
-  // Their own patch of lawn, so the house has something to stand on.
-  const NB_Z0 = NEIGHBOUR.z - NEIGHBOUR.d / 2 - 2.2
-  const nbSoil = mat('#5b4030', { roughness: 1 })
-  const nbLawn = box(GARDEN.x1 - 1.6 - GARDEN.x0, 0.2, GARDEN.z0 - NB_Z0, [nbSoil, nbSoil, mat('#6c8f55', { roughness: 1 }), nbSoil, nbSoil, nbSoil], (GARDEN.x0 + GARDEN.x1 - 1.6) / 2, -0.13, (GARDEN.z0 + NB_Z0) / 2, nb)
-  nbLawn.castShadow = false
-  const render = mat('#d8cdbd', { roughness: 0.95 })
-  const roofMat = mat('#5c4740', { roughness: 0.85 })
-  const H = 5.0
-  const front = NEIGHBOUR.z + NEIGHBOUR.d / 2
-  box(NEIGHBOUR.w, H, NEIGHBOUR.d, render, NEIGHBOUR.x, H / 2 - 0.03, NEIGHBOUR.z, nb)
-  // Gable roof, ridge along x.
-  const NR = 1.9
-  const nbGable = new THREE.Shape([new THREE.Vector2(-NEIGHBOUR.d / 2, 0), new THREE.Vector2(NEIGHBOUR.d / 2, 0), new THREE.Vector2(0, NR)])
-  const nbGableGeo = track(new THREE.ShapeGeometry(nbGable))
-  for (const s of [1, -1]) {
-    const g = new THREE.Mesh(nbGableGeo, render)
-    g.position.set(NEIGHBOUR.x + (s * NEIGHBOUR.w) / 2, H - 0.03, NEIGHBOUR.z)
-    g.rotation.y = (s * Math.PI) / 2
-    nb.add(g)
-  }
-  const nbSlope = Math.hypot(NEIGHBOUR.d / 2 + 0.35, NR + 0.2)
-  const nbAng = Math.atan2(NR + 0.2, NEIGHBOUR.d / 2 + 0.35)
-  for (const s of [1, -1]) {
-    const r = box(NEIGHBOUR.w + 0.5, 0.12, nbSlope, roofMat, NEIGHBOUR.x, H + NR / 2 - 0.05, NEIGHBOUR.z + (s * (NEIGHBOUR.d / 2 + 0.35)) / 2, nb)
-    r.rotation.x = s * nbAng
-  }
-  box(0.5, 1.6, 0.5, mat('#8a5a46', { roughness: 0.9 }), NEIGHBOUR.x + 1.9, H + 1.4, NEIGHBOUR.z - 0.6, nb) // chimney
-  // Windows on the side facing the garden: two floors of three, a door in the middle below.
-  const frame = mat('#f4f1ea', { roughness: 0.6 })
-  const lit = track(new THREE.MeshStandardMaterial({ color: '#8fa6bd', roughness: 0.15, metalness: 0.2, emissive: '#ffc27a', emissiveIntensity: 0 }))
-  const dark = track(new THREE.MeshStandardMaterial({ color: '#7f95ab', roughness: 0.15, metalness: 0.2, emissive: '#ffc27a', emissiveIntensity: 0 }))
-  const windows: [number, number, boolean][] = [
-    [-2.0, 1.5, true],
-    [2.0, 1.5, false],
-    [-2.0, 3.6, false],
-    [0, 3.6, true],
-    [2.0, 3.6, true],
-  ]
-  for (const [dx, y, on] of windows) {
-    box(1.1, 1.3, 0.06, frame, NEIGHBOUR.x + dx, y, front + 0.02, nb)
-    box(0.94, 1.14, 0.04, on ? lit : dark, NEIGHBOUR.x + dx, y, front + 0.05, nb).castShadow = false
-    box(0.04, 1.14, 0.03, frame, NEIGHBOUR.x + dx, y, front + 0.075, nb)
-    box(0.94, 0.04, 0.03, frame, NEIGHBOUR.x + dx, y, front + 0.075, nb)
-  }
-  box(1.0, 2.1, 0.08, mat('#3d5a73', { roughness: 0.6 }), NEIGHBOUR.x, 1.03, front + 0.03, nb) // door
-  const porchMat = track(new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffb86b', emissiveIntensity: 0, roughness: 0.4 }))
-  box(0.16, 0.22, 0.12, porchMat, NEIGHBOUR.x + 0.75, 2.3, front + 0.1, nb).castShadow = false
-  const porchLight = new THREE.PointLight('#ffb86b', 0, 6, 1.8)
-  porchLight.position.set(NEIGHBOUR.x + 0.75, 2.2, front + 0.6)
-  nb.add(porchLight)
-
   // ---------- Dog ----------
   const dog = buildDog(k)
   garden.add(dog.root)
 
   return {
     dog: dog.root,
-    /** The neighbour's house steps aside when the camera swings round behind it (like the room's back wall). */
-    showNeighbour(viewer: THREE.Vector3) {
-      nb.visible = viewer.z > NEIGHBOUR.z - NEIGHBOUR.d / 2 - 0.5
-    },
     setNight(night: boolean) {
-      lit.emissiveIntensity = night ? 1.6 : 0
-      porchMat.emissiveIntensity = night ? 2.2 : 0
-      porchLight.intensity = night ? 6 : 0
       shedPane.emissiveIntensity = night ? 0.5 : 0
     },
     update(t: number, dt: number, viewer: THREE.Vector3) {
@@ -214,7 +151,24 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
       kit.mesh(new THREE.CapsuleGeometry(0.055, 0.34, 4, 8), coat, 0, -0.24, 0, leg)
       legs.push(leg)
     }
-    root.traverse((o) => ((o as THREE.Mesh).castShadow = true))
+    // The dog moves, and the shadow map is only redrawn when the room changes, so it casts a soft blob
+    // on the lawn instead of a real shadow.
+    root.traverse((o) => ((o as THREE.Mesh).castShadow = false))
+    const blobCanvas = document.createElement('canvas')
+    blobCanvas.width = blobCanvas.height = 64
+    const bc = blobCanvas.getContext('2d')!
+    const grad = bc.createRadialGradient(32, 32, 2, 32, 32, 32)
+    grad.addColorStop(0, 'rgba(0,0,0,0.55)')
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.25)')
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    bc.fillStyle = grad
+    bc.fillRect(0, 0, 64, 64)
+    const blobMat = kit.track(new THREE.MeshBasicMaterial({ map: kit.track(new THREE.CanvasTexture(blobCanvas)), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }))
+    const blob = new THREE.Mesh(kit.track(new THREE.PlaneGeometry(1.5, 1.9)), blobMat)
+    blob.rotation.x = -Math.PI / 2
+    blob.position.set(0, 0.015, -0.05)
+    blob.renderOrder = 1
+    root.add(blob)
     root.position.set(-9.2, -0.03, 3.6)
 
     // Behaviour
@@ -229,15 +183,17 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
     let wagSpeed = 6
     const pickTarget = () => {
       for (let i = 0; i < 40; i++) {
-        const x = GARDEN.x0 + 1.3 + rand() * (GARDEN.x1 - GARDEN.x0 - 2.0)
+        const x = GARDEN.x0 + 1.3 + rand() * (PROPERTY.x1 - GARDEN.x0 - 2.3)
         const z = GARDEN.z0 + 1.3 + rand() * (GARDEN.z1 - GARDEN.z0 - 2.0)
         if (x > DECK.x0 - 0.6 && z > DECK.z0 - 0.5 && z < DECK.z1 + 0.5) continue // keep off the deck
-        if (!isFree(x, z, 0.45)) continue
+        if (!isFree(x, z, 0.45) || inHouse(x, z, 0.3)) continue // the walkable doorway must not lead the dog into the room
         // Straight line must stay clear.
         let clear = true
         for (let s = 1; s <= 10 && clear; s++) {
           const u = s / 10
-          clear = isFree(root.position.x + (x - root.position.x) * u, root.position.z + (z - root.position.z) * u, 0.4)
+          const lx = root.position.x + (x - root.position.x) * u
+          const lz = root.position.z + (z - root.position.z) * u
+          clear = isFree(lx, lz, 0.4) && !inHouse(lx, lz, 0.2)
         }
         if (!clear) continue
         target.set(x, z)
@@ -276,7 +232,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
           const speed = 0.9 * Math.max(0, Math.cos(angleTo(heading, want)))
           const nx = p.x + Math.sin(heading) * speed * dt
           const nz = p.z + Math.cos(heading) * speed * dt
-          if (isFree(nx, nz, 0.4)) {
+          if (isFree(nx, nz, 0.4) && !inHouse(nx, nz, 0.15)) {
             p.x = nx
             p.z = nz
             moving = speed > 0.05
@@ -313,6 +269,7 @@ export function buildBackyard(k: Kit, garden: THREE.Group) {
         hopT = Math.max(0, hopT - dt * 2.2)
         root.position.y = -0.03 + Math.sin((1 - hopT) * Math.PI) * 0.35
       } else root.position.y = -0.03
+      blob.position.y = 0.015 - (root.position.y + 0.03) // stays on the grass while the dog hops
     }
     return {
       root,

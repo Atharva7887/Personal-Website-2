@@ -1,4 +1,5 @@
 import { SubpageHeader } from '../components/SubpageHeader'
+import { GAMES } from '../play/games'
 import { hasPage, projects } from '../data/projects'
 
 const GROUPS = [
@@ -17,7 +18,8 @@ const GROUPS = [
     title: 'For fun',
     links: [
       ['Studio: my 3D room', '/studio/'],
-      ['Play: Find the minimum', '/play/'],
+      ['Play: three small games', '/play/'],
+      ...GAMES.map((g): [string, string] => [`${g.title} (game)`, g.path]),
     ],
   },
 ]
@@ -47,7 +49,7 @@ export function SitemapPage() {
         </div>
         <p className="mt-14 text-sm text-slate">
           For search engines:{' '}
-          <a href="/sitemap.xml" className="link">
+          <a href="/sitemap.xml" className="link inline-flex min-h-[44px] items-center">
             sitemap.xml
           </a>
         </p>

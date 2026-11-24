@@ -1,16 +1,15 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import dracoJs from 'three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js?url'
-import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url'
 import { makeKit } from './room/kit'
 import { buildGarden, type VineSpot } from './room/garden'
 import { PLACES, type PlaceId } from './places'
 import { buildGround, buildSky, SKY_DAY, SKY_SUNSET } from './room/sky'
 import { buildBackyard } from './room/backyard'
-import { GARDEN, inGarden } from './room/layout'
+import { buildCorner } from './room/corner'
+import { createModelLoader, restoreModel } from './room/assets'
+import { dedupeMaterials, mergeStatic } from './room/merge'
+import { FIRE, GARDEN, READING, ROOM, fireSeatAt, inGarden } from './room/layout'
 import { createWalker, type Pose } from './room/walk'
 import { arcadeTexture, brickTexture, floorTexture, laptopTexture, monitorTexture, phoneTexture, plasterBump, posterTexture, rugTexture, woodTexture } from './room/textures'
 
@@ -49,7 +48,7 @@ export interface RoomHandle {
 
 // Camera framing for each stop: where the camera sits and what it looks at.
 const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, number, number] }> = {
-  overview: { pos: [9.4, 8.8, 11.6], look: [-2.3, 1.0, -0.2] },
+  overview: { pos: [16.4, 12.4, 17.7], look: [-4.7, -0.2, -0.4] },
   desk: { pos: [0.3, 2.35, -0.5], look: [0.2, 1.55, -3.5] },
   gpu: { pos: [3.3, 1.5, -0.9], look: [1.9, 0.6, -3.2] },
   phone: { pos: [-0.35, 2.1, -1.6], look: [-0.5, 1.2, -2.8] },
@@ -57,10 +56,10 @@ const VIEWS: Record<StopId, { pos: [number, number, number]; look: [number, numb
   gallery: { pos: [-1.6, 3.4, 1.7], look: [-1.75, 3.45, -4] },
   shelf: { pos: [0.4, 2.5, 1.6], look: [-3.8, 1.9, 0.6] },
   plant: { pos: [-0.9, 1.9, -0.7], look: [-3.0, 1.0, -3.0] },
-  arcade: { pos: [3.1, 1.95, -1.1], look: [3.3, 1.35, -3.5] },
-  window: { pos: [0.6, 2.6, 0.8], look: [-3.9, 2.6, -1.6] },
+  arcade: { pos: [4.4, 1.95, -1.1], look: [4.6, 1.35, -3.5] },
+  window: { pos: [-1.5, 3.0, -1.0], look: [-5.4, 0.7, -3.0] },
   door: { pos: [0.4, 2.1, 2.0], look: [-4.6, 1.4, 2.85] },
-  garden: { pos: [-9.3, 2.7, 6.1], look: [-4.6, 1.5, 1.0] },
+  garden: { pos: [-6.6, 3.0, 6.3], look: [-8.0, 0.2, -2.0] },
   mug: { pos: [1.95, 2.0, -1.75], look: [1.0, 1.25, -2.65] },
 }
 
@@ -78,16 +77,30 @@ const noRaycast = () => {}
 
 export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { reduced: boolean; night: boolean }): RoomHandle {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
+  const BASE_RATIO = Math.min(window.devicePixelRatio, 1.75)
+  renderer.setPixelRatio(BASE_RATIO)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
+  // The shadow map is redrawn only when something that casts a shadow changes (models arriving, the sun
+  // moving, the door swinging, a wall stepping aside), not every frame: it is by far the biggest cost.
+  renderer.shadowMap.autoUpdate = false
+  renderer.shadowMap.needsUpdate = true
+  // With reduced motion the room is drawn only when something changed; this marks that it did.
+  let dirty = true
+  const invalidate = () => {
+    dirty = true
+  }
+  const refreshShadows = () => {
+    renderer.shadowMap.needsUpdate = true
+    dirty = true
+  }
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.outputColorSpace = THREE.SRGBColorSpace
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
   // Dev only: lets the headless checks read where the camera is.
-  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene })
+  if (import.meta.env.DEV) Object.assign(window, { __studioCamera: camera, __studioScene: scene, __studioRenderer: renderer, __studioQuality: () => ({ level, pixelRatio: renderer.getPixelRatio(), shadow: sun.shadow.mapSize.x }) })
   const kit = makeKit(scene)
   const { track, mat, mesh, box, tbox, cyl } = kit
 
@@ -98,13 +111,18 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.environment = envTarget.texture
   pmrem.dispose()
 
+  // The pond reflects a cube map taken once from its centre (not a live mirror, which would redraw the scene
+  // every frame): after the models are in, and again whenever the sky changes.
+  const reflection = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter })
+  const reflectionCam = new THREE.CubeCamera(0.05, 100, reflection)
+
   // Interactive groups
   const groups = new Map<StopId, THREE.Group>()
-  const group = (id: StopId) => {
+  const group = (id: StopId, parent: THREE.Object3D = scene) => {
     const g = new THREE.Group()
     g.userData.id = id
     g.name = id.charAt(0).toUpperCase() + id.slice(1)
-    scene.add(g)
+    parent.add(g)
     groups.set(id, g)
     return g
   }
@@ -131,9 +149,14 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
 
   // Walls and floor stop a click from reaching what is behind them (the garden, mostly).
   const occluders: THREE.Object3D[] = []
-  const floor = tbox(8.2, 0.2, 8.2, [slab, slab, floorMat, slab, slab, slab], -0.1, -0.1, -0.1, 4)
+  // The room is 10 wide (x -4 to 6) and 9 deep (z -4 to 5); the left and back walls stay where they were.
+  const RCX = (ROOM.x0 + ROOM.x1) / 2
+  const RCZ = (ROOM.z0 + ROOM.z1) / 2
+  const RW_ = ROOM.x1 - ROOM.x0
+  const RD_ = ROOM.z1 - ROOM.z0
+  const floor = tbox(RW_ + 0.4, 0.2, RD_ + 0.4, [slab, slab, floorMat, slab, slab, slab], RCX, -0.1, RCZ, 4)
   floor.name = 'Floor'
-  const backWall = tbox(8.2, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, wallMat, wallMat], -0.1, 2.5, -4.1, 2)
+  const backWall = tbox(RW_ + 0.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, wallMat, wallMat], RCX, 2.5, ROOM.z0 - 0.1, 2)
   backWall.name = 'Back wall'
   occluders.push(floor, backWall)
   // The left wall is built in pieces around the window and the door. Inside is painted, outside is brick.
@@ -152,11 +175,11 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   wallPiece(WIN.z0, WIN.z1, WIN.y1, 5)
   wallPiece(WIN.z1, DOOR.z0, 0, 5)
   wallPiece(DOOR.z0, DOOR.z1, DOOR.y1, 5)
-  wallPiece(DOOR.z1, 4, 0, 5)
+  wallPiece(DOOR.z1, ROOM.z1, 0, 5)
   // Skirting
-  box(8, 0.2, 0.05, white, 0, 0.1, -3.975)
-  box(0.05, 0.2, DOOR.z0 + 4 - 0.08, white, -3.975, 0.1, (DOOR.z0 - 4 - 0.08) / 2)
-  box(0.05, 0.2, 4 - DOOR.z1 - 0.08, white, -3.975, 0.1, (4 + DOOR.z1 + 0.08) / 2)
+  box(RW_, 0.2, 0.05, white, RCX, 0.1, ROOM.z0 + 0.025)
+  box(0.05, 0.2, DOOR.z0 - ROOM.z0 - 0.08, white, ROOM.x0 + 0.025, 0.1, (DOOR.z0 + ROOM.z0 - 0.08) / 2)
+  box(0.05, 0.2, ROOM.z1 - DOOR.z1 - 0.08, white, ROOM.x0 + 0.025, 0.1, (ROOM.z1 + DOOR.z1 + 0.08) / 2)
 
   // The two near walls (front and right). Seen from outside, the room is an open box; once you are
   // inside (walking, standing, close up), these close it in. The right one has a window on to the view.
@@ -170,23 +193,25 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     occluders.push(piece)
   }
   // Box faces are +x, -x, +y, -y, +z, -z: brick outside, paint inside.
-  nearPiece(8.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], 0, 2.5, 4.1)
-  const RW = { z0: -1.5, z1: 1.1, y0: 1.5, y1: 3.6 }
+  nearPiece(RW_ + 0.4, 5, 0.2, [wallMat, wallMat, wallMat, wallMat, brick, wallMat], RCX, 2.5, ROOM.z1 + 0.1)
+  // The window looks out from the reading corner, in the front half of the right wall.
+  const RW = { z0: 1.1, z1: 3.7, y0: 1.5, y1: 3.6 }
+  const RX = ROOM.x1 + 0.1 // the right wall's centre line
   const rightMats = [brick, wallMat, wallMat, wallMat, wallMat, wallMat]
-  nearPiece(0.2, 5, RW.z0 + 4.2, rightMats, 4.1, 2.5, (RW.z0 - 4.2) / 2)
-  nearPiece(0.2, 5, 4 - RW.z1, rightMats, 4.1, 2.5, (RW.z1 + 4) / 2)
-  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, 4.1, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
-  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, 4.1, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5, RW.z0 - ROOM.z0 + 0.2, rightMats, RX, 2.5, (RW.z0 + ROOM.z0 - 0.2) / 2)
+  nearPiece(0.2, 5, ROOM.z1 - RW.z1, rightMats, RX, 2.5, (RW.z1 + ROOM.z1) / 2)
+  nearPiece(0.2, RW.y0, RW.z1 - RW.z0, rightMats, RX, RW.y0 / 2, (RW.z0 + RW.z1) / 2)
+  nearPiece(0.2, 5 - RW.y1, RW.z1 - RW.z0, rightMats, RX, (RW.y1 + 5) / 2, (RW.z0 + RW.z1) / 2)
   // Window frame and sill, and skirting along both walls.
-  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, 4.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, 4.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
-  box(0.06, RW.y1 - RW.y0, 0.05, white, 4.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, 3.88, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
-  box(8, 0.2, 0.05, white, 0, 0.1, 3.975, nearWalls).castShadow = false
-  box(0.05, 0.2, 8, white, 3.975, 0.1, 0, nearWalls).castShadow = false
+  for (const y of [RW.y0, RW.y1]) box(0.24, 0.08, RW.z1 - RW.z0 + 0.16, white, RX - 0.05, y, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  for (const z of [RW.z0, RW.z1]) box(0.24, RW.y1 - RW.y0, 0.08, white, RX - 0.05, (RW.y0 + RW.y1) / 2, z, nearWalls).castShadow = false
+  box(0.06, RW.y1 - RW.y0, 0.05, white, RX - 0.05, (RW.y0 + RW.y1) / 2, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(0.4, 0.06, RW.z1 - RW.z0 + 0.3, white, RX - 0.22, RW.y0 - 0.02, (RW.z0 + RW.z1) / 2, nearWalls).castShadow = false
+  box(RW_, 0.2, 0.05, white, RCX, 0.1, ROOM.z1 - 0.025, nearWalls).castShadow = false
+  box(0.05, 0.2, RD_, white, ROOM.x1 - 0.025, 0.1, RCZ, nearWalls).castShadow = false
 
   // Rug
-  const rug = mesh(new THREE.BoxGeometry(3.6, 0.03, 2.4), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.5, 0.015, -0.7)
+  const rug = mesh(new THREE.BoxGeometry(4.2, 0.03, 2.8), mat('#ffffff', { map: track(rugTexture()), roughness: 1 }), 0.9, 0.015, -0.4)
   rug.name = 'Rug'
   rug.castShadow = false
 
@@ -240,7 +265,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(gpuLight)
 
   // ---------- Phone (Unhaze) ----------
-  const phone = group('phone')
+  const phone = group('phone', desk) // sits on the desk, so it follows the desk's lift and squash
   const PHX = -0.42
   const PHZ = -2.92
   const phoneBody = mesh(new THREE.BoxGeometry(0.26, 0.025, 0.52), mat('#16181f', { roughness: 0.3, metalness: 0.6 }), PHX, DESK_Y + 0.0125, PHZ, phone)
@@ -250,7 +275,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   phoneScreen.castShadow = false
 
   // ---------- Mug with steam ----------
-  const mug = group('mug')
+  const mug = group('mug', desk)
   const MUG: [number, number, number] = [1.02, DESK_Y, -2.62]
   const mugFallback = new THREE.Group()
   mug.add(mugFallback)
@@ -281,7 +306,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const steamMat = track(new THREE.PointsMaterial({ color: '#ffffff', size: 0.05, transparent: true, opacity: 0.4, depthWrite: false }))
   const steam = new THREE.Points(steamGeo, steamMat)
   steam.name = 'Steam'
-  scene.add(steam)
+  mug.add(steam) // rises from the cup, so it follows the cup (and the desk under it)
 
   // ---------- Framed pictures ----------
   const frameBlack = mat('#15161b', { roughness: 0.4 })
@@ -314,6 +339,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       art.map = t
       art.color.set('#ffffff')
       art.needsUpdate = true
+      invalidate()
     })
     framed(gallery, art, -3.1 + (i % 3) * 1.42, i < 3 ? 4.02 : 2.98, 1.14, 0.6, i % 2 ? frameBlack : frameOak)
   })
@@ -466,7 +492,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   arcade.add(arcadeFallback)
   const cab = mat('#2f45ff', { roughness: 0.45 })
   const black = mat('#0c0f14', { roughness: 0.5 })
-  const AX = 3.3
+  const AX = 4.6 // out from the PC, so the back wall is not crowded into one corner
   const AZ = -3.45
   pickBox(1.1, 2.1, 0.9, AX, 1.05, AZ, arcade)
   box(0.9, 1.9, 0.8, cab, AX, 0.95, AZ, arcadeFallback)
@@ -496,17 +522,19 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   shade.castShadow = false
   const lampLight = new THREE.PointLight('#ffb27a', 0, 8, 1.6)
   lampLight.position.set(-2.9, 1.9, -0.5)
-  lampLight.castShadow = true
-  lampLight.shadow.mapSize.set(512, 512)
-  lampLight.shadow.bias = -0.002
+  // No shadow from this lamp: a point light's shadow is six extra renders of the scene.
   scene.add(lampLight)
 
+  // ---------- Reading corner: armchair, side table and lamp, record cabinet, round rug ----------
+  const reading = buildCorner(kit, scene, nearWalls, walnut, brass)
+
   // ---------- A place to sit: the sofa model, or a bean bag if it does not load ----------
-  const SOFA: [number, number, number] = [1.15, 0, 2.55]
+  // Its back (measured on the loaded model: 2.25 deep, so its back is 1.12 behind its origin) sits 4 cm off the front wall's skirting.
+  const SOFA: [number, number, number] = [1.15, 0, 3.79]
   const seating = new THREE.Group()
   seating.name = 'Seating'
   scene.add(seating)
-  const bag = mesh(new THREE.SphereGeometry(0.8, 28, 18), mat('#3d4a78', { roughness: 1 }), 2.75, 0.4, 1.5)
+  const bag = mesh(new THREE.SphereGeometry(0.8, 28, 18), mat('#3d4a78', { roughness: 1 }), 1.3, 0.4, 3.75)
   bag.name = 'Bean bag'
   bag.visible = false
   bag.scale.set(1, 0.56, 1)
@@ -528,7 +556,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(yardRoot)
   const yard = buildBackyard(kit, yardRoot)
   // The lawn is the garden's click target.
-  pickBox(8.6, 0.1, 9, -8.6, 0.02, 1.6, garden)
+  pickBox(13.4, 0.1, 12, -11.5, 0.02, 0.4, garden)
 
   // ---------- Models ----------
   const loaded: THREE.Object3D[] = []
@@ -544,9 +572,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         material.dispose()
       }
     })
-  // The Draco decoder ships with three; it is fetched only when a model needs it.
-  const draco = new DRACOLoader().setDecoderPath({ js: dracoJs, wasm: dracoWasm })
-  const loader = new GLTFLoader().setDRACOLoader(draco)
+  const { loader, dispose: disposeLoader } = createModelLoader(renderer)
   // Load progress across every model, weighted by size (a file without a known size counts as ~0.5 MB).
   const progress = new Map<string, { loaded: number; total: number; done: boolean }>()
   const report = () => {
@@ -581,12 +607,25 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       disposeTree(root)
       throw new Error('room disposed')
     }
+    restoreModel(root)
     loaded.push(root)
+    refreshShadows()
     root.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       m.castShadow = m.receiveShadow = true
       m.raycast = noRaycast // clicks go to the pick boxes instead
+      // Glass that refracts (the PC's side panel) makes three draw the whole opaque scene a second time
+      // into a buffer to look through. Ordinary see-through glass looks nearly the same for half the cost.
+      for (const material of Array.isArray(m.material) ? m.material : [m.material]) {
+        const glass = material as THREE.MeshPhysicalMaterial
+        if (!glass.transmission) continue
+        glass.opacity = THREE.MathUtils.clamp(1 - glass.transmission * 0.75, 0.25, 1)
+        glass.transmission = 0
+        glass.transparent = true
+        glass.depthWrite = false
+        glass.needsUpdate = true
+      }
     })
     return root
   }
@@ -700,29 +739,6 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     place('Pothos', scene, -3.38, 0, 3.72, 1.2, 1.3)
     loaded.push(plant, sideboard) // their models now live in these groups
   }, warn)
-  // The greenhouse at the back of the garden, lit from inside at night.
-  const GH: [number, number, number] = [-7.75, -0.03, -3.2]
-  const greenhouseGlow = new THREE.PointLight('#ffd9a0', 0, 7, 1.6)
-  greenhouseGlow.position.set(GH[0], 1.4, GH[2])
-  scene.add(greenhouseGlow)
-  const greenhouse = load('greenhouse.glb').then((root) => {
-    root.position.set(...GH)
-    root.rotation.y = Math.PI / 2
-    root.scale.setScalar(M)
-    root.traverse((o) => {
-      const material = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
-      if (!material) return
-      if (material.name === 'GreenhouseGlass') {
-        material.transparent = true
-        material.opacity = 0.32
-        material.roughness = 0.05
-        material.color.set('#cfe3ea')
-        material.side = THREE.DoubleSide
-        ;(o as THREE.Mesh).castShadow = false
-      }
-    })
-    scene.add(root)
-  }, warn)
   const gardenModels = load('garden.glb').then((root) => outside.useModels(root), warn)
   const interiorVines: VineSpot[] = [{ pos: [-3.72, 2.68, 1.7], scale: 1.1, rotY: 0.8 }]
   const vine = load('vine.glb').then(
@@ -771,25 +787,61 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       bag.visible = true
     },
   )
-  const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, greenhouse, gardenModels, furniture]).then(() => {
-    draco.dispose()
+  /** Small things (a cup, a button, a pot of pens) are not worth a place in the shadow pass: turn their shadows off. */
+  const sphere = new THREE.Sphere()
+  const trimShadowCasters = () => {
+    desk.updateMatrixWorld(true)
+    scene.updateMatrixWorld(true)
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || !m.castShadow) return
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere()
+      sphere.copy(m.geometry.boundingSphere!).applyMatrix4(m.matrixWorld)
+      if (sphere.radius < 0.1) m.castShadow = false
+    })
+    // Whatever stands on the desk is just surface detail.
+    for (const g of [phone, mug]) g.traverse((o) => ((o as THREE.Mesh).castShadow = false))
+  }
+  /**
+   * One draw call per material instead of one per piece. Each of these is a group that moves, hides or
+   * hovers as a whole, so its pieces are merged inside it; things that move on their own (the door leaf,
+   * swaying plants and trees, the dog) and the walls that picking relies on are left alone.
+   */
+  const mergeRoom = () => {
+    dedupeMaterials(loaded)
+    const stats = mergeStatic(
+      [...groups.values(), sideboard, reading.corner, outside.root, yardRoot],
+      [leaf, ...swaying, ...outside.moving(), yard.dog, ...occluders],
+      (g) => track(g),
+    )
+    if (import.meta.env.DEV) console.info(`Studio room: merged ${stats.before} meshes into ${stats.after}`)
+  }
+  const ready = Promise.all([setup, monitor, laptop, vine, gaming, plants, gardenModels, furniture]).then(() => {
+    disposeLoader()
+    qualityFrom = performance.now() + 2500
+    trimShadowCasters()
+    mergeRoom()
+    refreshShadows()
+    modelsIn = true
+    captureReflection()
   })
 
   // ---------- Lights ----------
   const hemi = new THREE.HemisphereLight('#ffffff', '#b89b7c', 0.6)
   scene.add(hemi)
   const sun = new THREE.DirectionalLight('#fff1d6', 2.6)
-  sun.target.position.set(-3, 0, 0)
-  sun.position.set(-11, 8.5, 3) // low enough to come in through the window and the door
+  sun.target.position.set(-6, 0, 0.5)
+  sun.position.set(-14, 8.5, 3.5) // low enough to come in through the window and the door
   scene.add(sun.target)
   sun.castShadow = true
   const shadowSize = window.innerWidth < 800 ? 2048 : 4096
   sun.shadow.mapSize.set(shadowSize, shadowSize)
   const sc = sun.shadow.camera
-  sc.left = sc.bottom = -11
-  sc.right = sc.top = 11
+  // The scene runs from the far garden (x -18) to the room's right wall (x 6): the shadow camera covers all of it.
+  sc.left = sc.bottom = -15
+  sc.right = sc.top = 15
   sc.near = 0.5
-  sc.far = 40
+  sc.far = 70
   sun.shadow.bias = -0.0004
   sun.shadow.normalBias = 0.03
   scene.add(sun)
@@ -803,7 +855,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   scene.add(sky.mesh)
   const ground = buildGround(42)
   scene.add(ground.mesh)
-  const SUN_TARGET = new THREE.Vector3(-3, 0, 0)
+  const SUN_TARGET = new THREE.Vector3(-6, 0, 0.5)
   const SUN_DAY = new THREE.Vector3(-8, 8.5, 3).normalize()
   // By day the light comes from high over the garden; the disc you see sits lower in the west, where
   // eye-level views (through the window, across the garden) can find it.
@@ -811,11 +863,27 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   const SUN_SUNSET = new THREE.Vector3(-0.9, 0.13, -0.42).normalize()
 
   let night = opts.night
+  let modelsIn = false
+  /** Photograph the surroundings from the pond's centre for its water to reflect (sky included, the water itself left out). */
+  const captureReflection = () => {
+    const { pond } = outside
+    pond.hideForCapture(true)
+    const groundShown = ground.mesh.visible
+    ground.mesh.visible = true
+    reflectionCam.position.copy(pond.centre)
+    sky.follow(reflectionCam)
+    reflectionCam.update(renderer, scene)
+    sky.follow(camera)
+    ground.mesh.visible = groundShown
+    pond.hideForCapture(false)
+    pond.setReflection(reflection.texture, pond.centre)
+    dirty = true
+  }
   // Night in Pune is shown as a sunset: a low orange sun, a dusky sky, and every lamp on.
   const applyNight = () => {
     scene.background = new THREE.Color(night ? '#0b0d1a' : '#e4e7ec')
     const dir = night ? SUN_SUNSET : SUN_DAY
-    sun.position.copy(SUN_TARGET).addScaledVector(dir, 14)
+    sun.position.copy(SUN_TARGET).addScaledVector(dir, 26) // far enough back that the whole garden is in front of the shadow camera
     sky.set(night ? SKY_SUNSET : SKY_DAY, night ? dir : SUN_DAY_DISC, night ? 1 : 0)
     ground.set(night ? '#2b2a3a' : '#9fb489', (night ? SKY_SUNSET : SKY_DAY).horizon)
     scene.environmentIntensity = night ? 0.16 : 0.5
@@ -827,14 +895,17 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     fill.intensity = night ? 0.22 : 0.5
     fill.color.set(night ? '#7a6ad8' : '#c9d1ff')
     lampLight.intensity = night ? 14 : 0
+    reading.setNight(night)
     shadeMat.emissiveIntensity = night ? 1.6 : 0
     gpuLight.intensity = night ? 10 : 5
     monitorGlow.intensity = night ? 5 : 0
     galleryLight.intensity = night ? 7 : 0
-    greenhouseGlow.intensity = night ? 9 : 0
     railLight.emissiveIntensity = night ? 2.2 : 0
     outside.setNight(night)
+    outside.pond.setSun(night ? dir : SUN_DAY_DISC)
     yard.setNight(night)
+    refreshShadows() // the sun moved
+    if (modelsIn) captureReflection() // the sky and the lamps changed
   }
   applyNight()
 
@@ -844,8 +915,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const look = new THREE.Vector3(...VIEWS[id].look)
     const pos = new THREE.Vector3(...VIEWS[id].pos)
     if (id === 'overview') {
-      const across = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect
-      pos.sub(look).multiplyScalar(THREE.MathUtils.clamp(0.55 / across, 1, 2.3)).add(look)
+      const across = Math.tan(THREE.MathUtils.degToRad((camera.aspect < 1 ? 58 : 38) / 2)) * camera.aspect
+      pos.sub(look).multiplyScalar(THREE.MathUtils.clamp(0.47 / across, 1, 2.1)).add(look)
     }
     return { pos, look }
   }
@@ -868,11 +939,12 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   controls.rotateSpeed = 0.7
   controls.enablePan = false
   controls.minDistance = 1.2
-  controls.maxDistance = 34
+  controls.maxDistance = 64
   controls.minPolarAngle = 0.15
   controls.maxPolarAngle = 1.48 // never below the floor
   controls.autoRotate = !opts.reduced // the room turns slowly on its own until someone takes over
   controls.autoRotateSpeed = 0.45
+  if (import.meta.env.DEV) Object.assign(window, { __studioControls: controls })
   let userMoved = false
   const onControlsStart = () => {
     userMoved = true
@@ -892,8 +964,51 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   // Runs before the controls see the wheel: only ctrl + wheel (a trackpad pinch) zooms; touch pinch always can.
   // Standing somewhere, there is nothing to zoom: you look around instead.
   let standing: PlaceId | null = null
-  const onZoomWheel = (e: WheelEvent) => (controls.enableZoom = e.ctrlKey && !standing)
+  const onZoomWheel = (e: WheelEvent) => {
+    if (e.ctrlKey && (standing || walker.active)) {
+      // Standing or walking there is no distance to dolly, so ctrl + wheel (or a pinch) narrows the field of view instead.
+      e.preventDefault()
+      e.stopImmediatePropagation() // not a step forward
+      zoomBy(Math.exp(e.deltaY * 0.004))
+    }
+    controls.enableZoom = e.ctrlKey && !standing
+  }
   const onZoomDown = () => (controls.enableZoom = !standing)
+
+  // Keyboard zoom: ctrl + / ctrl - (and ctrl 0 to reset) zoom the 3D view instead of the page. In an orbit view
+  // the camera dollies in or out; standing or walking it narrows the field of view (down to about 25 degrees).
+  const baseFov = () => (camera.aspect < 1 ? 58 : 38)
+  let zoomTarget = 1 // field of view as a fraction of the normal one
+  let zoomNow = 1
+  let dollyGoal: number | null = null // the orbit distance the camera is easing towards
+  const zoomBy = (factor: number) => {
+    // factor < 1 zooms in
+    if (standing || walker.active) zoomTarget = THREE.MathUtils.clamp(zoomTarget * factor, 25 / baseFov(), 1)
+    else if (flyT >= 1) {
+      const from = dollyGoal ?? camera.position.distanceTo(controls.target)
+      dollyGoal = THREE.MathUtils.clamp(from * factor, controls.minDistance, controls.maxDistance)
+    }
+  }
+  const resetZoom = () => {
+    zoomTarget = 1
+    dollyGoal = null
+    if (!standing && !walker.active && flyT >= 1) {
+      const v = viewOf(current)
+      dollyGoal = THREE.MathUtils.clamp(v.pos.distanceTo(v.look), controls.minDistance, controls.maxDistance)
+    }
+  }
+  const onZoomKey = (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+    const code = e.code
+    const zoomIn = code === 'Equal' || code === 'NumpadAdd' || e.key === '+' || e.key === '='
+    const zoomOut = code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || e.key === '_'
+    const reset = code === 'Digit0' || code === 'Numpad0' || e.key === '0'
+    if (!zoomIn && !zoomOut && !reset) return
+    e.preventDefault() // the browser would zoom the whole page
+    if (reset) resetZoom()
+    else zoomBy(zoomIn ? 0.8 : 1.25)
+  }
+  window.addEventListener('keydown', onZoomKey)
 
   // Orbit: the camera circles what it looks at. Standing: the camera stays put and turns on the spot,
   // done by orbiting a point a few centimetres in front of the eye. A drag moves the view the way
@@ -928,6 +1043,8 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     controls.target.copy(camLook)
   }
   const fly = (pos: THREE.Vector3, look: THREE.Vector3) => {
+    zoomTarget = 1 // a new view starts at the normal zoom
+    dollyGoal = null
     fromPos = camPos.clone()
     fromLook = camLook.clone()
     toPos = pos
@@ -941,6 +1058,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       camera.position.copy(camPos)
       controls.target.copy(camLook)
       doorAngle = doorTarget
+      refreshShadows()
       land()
     }
   }
@@ -952,15 +1070,23 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     onSeat: (n, s) => ev.onSeat?.(n?.label ?? null, s?.label ?? null),
     onLock: (l) => ev.onLock?.(l),
   })
-  // Somewhere to sit: the sofa, facing into the room, and the desk chair, facing the monitor.
+  // Somewhere to sit: the sofa and the armchair, facing into the room, and the desk chair, facing the monitor.
   walker.setSeats(() => {
     const cx = chair.position.x
     const cz = chair.position.z
     const mx = DESK_X
     const mz = DESK_Z
     const toDesk = Math.hypot(mx - cx, mz - cz)
+    const ac = READING.chair
     return [
-      { id: 'sofa', label: 'the sofa', x: 1.6, z: 2.5, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
+      // The armchair's seat is a touch forward of its centre, so you sit in the cushion, not the back.
+      { id: 'armchair', label: 'the armchair', x: ac.x + Math.sin(ac.yaw) * 0.08, z: ac.z + Math.cos(ac.yaw) * 0.08, eyeY: 1.85, yaw: ac.yaw, pitch: -0.1 },
+      // The two stumps by the fire, facing it.
+      ...[0, 1].map((i) => {
+        const { x, z } = fireSeatAt(i)
+        return { id: `fire${i}`, label: 'a stump by the fire', x, z, eyeY: 1.62, yaw: Math.atan2(FIRE.x - x, FIRE.z - z), pitch: -0.42 }
+      }),
+      { id: 'sofa', label: 'the sofa', x: 1.6, z: 3.74, eyeY: 1.85, yaw: Math.PI, pitch: -0.1 },
       { id: 'chair', label: 'the desk chair', x: cx, z: cz, eyeY: 1.95, yaw: Math.atan2(mx - cx, mz - cz), pitch: Math.atan2(DESK_Y + 0.45 - 1.95, toDesk) },
     ]
   })
@@ -984,7 +1110,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const dir = look.clone().sub(pos).normalize()
     standing = null
     current = id === 'garden' ? 'garden' : 'overview'
-    walkPlace = inGarden(pos.x) ? 'garden' : 'room'
+    walkPlace = inGarden(pos.x, pos.z) ? 'garden' : 'room'
     doorTarget = DOOR_OPEN // the door stays open so you can walk through
     setStand()
     pendingWalk = { x: pos.x, z: pos.z, yaw: Math.atan2(dir.x, dir.z), pitch: Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)) }
@@ -997,7 +1123,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     standing = null
     const view = viewOf(id)
     // Close up, the camera stays near the thing; the whole room can be seen from further out.
-    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 34 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
+    setOrbit(id === 'overview' ? 4 : 0.8, id === 'overview' ? 64 : Math.max(4, view.pos.distanceTo(view.look) * 2.2))
     // The door swings wide when you head for the garden.
     doorTarget = id === 'door' || id === 'garden' ? DOOR_OPEN : DOOR_AJAR
     fly(view.pos, view.look)
@@ -1018,9 +1144,10 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     const w = canvas.clientWidth || 1
     const h = canvas.clientHeight || 1
     renderer.setSize(w, h, false)
+    refreshShadows()
     camera.aspect = w / h
     // Narrow screens: widen the view so the whole room fits.
-    camera.fov = w / h < 1 ? 58 : 38
+    camera.fov = (w / h < 1 ? 58 : 38) * zoomNow
     camera.updateProjectionMatrix()
     // Keep the overview framed when the window changes shape.
     if (current === 'overview' && !standing && !walker.active && !pendingWalk && flyT >= 1 && !userMoved) {
@@ -1075,16 +1202,105 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
   canvas.addEventListener('pointerup', onUp)
 
 
+  // Lift and squash pivot at the bottom-centre of what a group holds, so a squashed thing stays on its
+  // spot instead of sliding towards the world origin. Measured in the group's own space, and again once
+  // the models are in (before that, only the click area is there to measure).
+  const pivots = new Map<StopId, THREE.Vector3>()
+  const measureBox = new THREE.Box3()
+  const partBox = new THREE.Box3()
+  const toLocal = new THREE.Matrix4()
+  const measurePivots = () => {
+    for (const [id, g] of groups) {
+      const keepP = g.position.clone()
+      const keepS = g.scale.clone()
+      g.position.set(0, 0, 0)
+      g.scale.set(1, 1, 1)
+      g.updateMatrixWorld(true)
+      toLocal.copy(g.matrixWorld).invert()
+      const grow = (hidden: boolean) =>
+        g.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || m.visible === hidden) return
+          if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+          measureBox.union(partBox.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld.clone().premultiply(toLocal)))
+        })
+      measureBox.makeEmpty()
+      grow(false)
+      if (measureBox.isEmpty()) grow(true) // only the invisible click area so far
+      const pv = pivots.get(id) ?? new THREE.Vector3()
+      if (measureBox.isEmpty()) pv.set(0, 0, 0)
+      else pv.set((measureBox.min.x + measureBox.max.x) / 2, measureBox.min.y, (measureBox.min.z + measureBox.max.z) / 2)
+      pivots.set(id, pv)
+      g.position.copy(keepP)
+      g.scale.copy(keepS)
+    }
+  }
+  measurePivots()
+  ready.then(measurePivots)
+
   const pop = new Map<StopId, number>()
   const hoverScale = new Map<StopId, number>()
   // Big, fixed things (the garden, the window, the door) only nudge on hover; they don't bounce.
   const still = new Set<StopId>(['garden', 'window', 'door', 'gallery'])
   let last = performance.now()
   let raf = 0
+  let onScreen = true
+
+  // Adaptive quality. If frames take too long for a couple of seconds, drop a notch: first the pixel ratio
+  // (1.75 -> 1.25 -> 1), then the shadow map (4096 -> 2048 -> 1024). Frame time is the time between frames,
+  // so on a 60 Hz screen this can only say "too slow", never "plenty of room"; it climbs back up only on
+  // fast screens, at most once every 5 s, and stops climbing for good if that makes it slow again.
+  const ratios = [BASE_RATIO, 1.25, 1].filter((v, i, a) => (i === 0 ? true : v < Math.min(...a.slice(0, i))))
+  const shadowSizes = [shadowSize, 2048, 1024].filter((v, i, a) => (i === 0 ? true : v < Math.min(...a.slice(0, i))))
+  const maxLevel = ratios.length - 1 + shadowSizes.length - 1
+  let level = 0
+  const applyLevel = () => {
+    const ratio = ratios[Math.min(level, ratios.length - 1)]
+    if (renderer.getPixelRatio() !== ratio) renderer.setPixelRatio(ratio)
+    const size = shadowSizes[Math.max(0, level - (ratios.length - 1))]
+    if (sun.shadow.mapSize.x !== size) {
+      sun.shadow.mapSize.set(size, size)
+      sun.shadow.map?.dispose()
+      sun.shadow.map = null
+    }
+    refreshShadows()
+  }
+  const WINDOW = 2000
+  const recent: [number, number][] = []
+  let qualityFrom = Infinity // set once the models are in: loading hitches are not a trend
+  let lastChange = 0
+  let lastUp = -Infinity
+  let noMoreUp = false
+  const adapt = (now: number, delta: number) => {
+    if (opts.reduced || now < qualityFrom) return
+    if (delta > 250) {
+      recent.length = 0 // a stall (switching tabs, a garbage collection), not a trend
+      return
+    }
+    recent.push([now, delta])
+    while (recent.length && now - recent[0][0] > WINDOW) recent.shift()
+    if (recent.length < 20 || now - recent[0][0] < WINDOW - 200) return
+    const sorted = recent.map((w) => w[1]).sort((a, b) => a - b)
+    const median = sorted[sorted.length >> 1]
+    if (median > 20 && level < maxLevel) {
+      level++
+      if (now - lastUp < 10000) noMoreUp = true
+    } else if (median < 10 && level > 0 && !noMoreUp && now - lastChange >= 5000) {
+      level--
+      lastUp = now
+    } else return
+    lastChange = now
+    recent.length = 0
+    applyLevel()
+  }
+  const camSeen = new THREE.Vector3(1e9, 0, 0)
+  const quatSeen = new THREE.Quaternion()
+  let lastShadowKey = -1
   const ledColor = new THREE.Color()
 
   const loop = () => {
     const now = performance.now()
+    adapt(now, now - last)
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     const t = now / 1000
@@ -1101,6 +1317,20 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
         land()
       }
     }
+    // Keyboard zoom eases in: the field of view narrows, or the orbit camera moves along its line of sight.
+    if (zoomNow !== zoomTarget) {
+      zoomNow = opts.reduced || Math.abs(zoomNow - zoomTarget) < 0.002 ? zoomTarget : zoomNow + (zoomTarget - zoomNow) * (1 - Math.exp(-dt * 9))
+      camera.fov = baseFov() * zoomNow
+      camera.updateProjectionMatrix()
+      dirty = true
+    }
+    if (dollyGoal !== null && flyT >= 1 && !standing && !walker.active) {
+      const off = camera.position.clone().sub(controls.target)
+      const d = off.length()
+      const nd = opts.reduced || Math.abs(dollyGoal - d) < 0.01 ? dollyGoal : d + (dollyGoal - d) * (1 - Math.exp(-dt * 8))
+      if (nd === dollyGoal) dollyGoal = null
+      camera.position.copy(controls.target).addScaledVector(off.normalize(), nd)
+    }
     const k = 1 - Math.pow(0.05, dt)
     if (flyT < 1) {
       camera.position.copy(camPos)
@@ -1109,7 +1339,7 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     } else if (walker.update(dt)) {
       camPos.copy(camera.position)
       camera.getWorldDirection(camLook).multiplyScalar(3).add(camera.position)
-      const here: PlaceId = inGarden(camera.position.x) ? 'garden' : 'room'
+      const here: PlaceId = inGarden(camera.position.x, camera.position.z) ? 'garden' : 'room'
       if (here !== walkPlace) {
         walkPlace = here
         current = here === 'garden' ? 'garden' : 'overview'
@@ -1126,31 +1356,46 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
     // Seen from outside, the wall in the way steps aside so the room stays visible.
     const fromFront = camera.position.z > -10
     backWall.visible = poster.visible = gallery.visible = rail.visible = fromFront
-    yard.showNeighbour(camera.position)
-    {
-      const c = camera.position
-      nearWalls.visible = c.x > -4 && c.x < 3.95 && c.z > -4 && c.z < 3.95 && c.y < 5.2
-    }
+    // The front and right walls close the room in at eye level, from outside too (the brick shows on the lawn
+    // beside it). Only the raised orbit views, overview and from above, keep it an open box.
+    nearWalls.visible = camera.position.y < 5.5 || !!standing || walker.active
     sideWall.forEach((w) => (w.visible = camera.position.x > GARDEN.x0 - 1 || current === 'garden' || !!standing || walker.active))
+    // A wall stepping aside changes what the sun can reach, so the shadows are drawn again.
+    const shadowKey = (backWall.visible ? 1 : 0) | (sideWall[0].visible ? 2 : 0)
+    if (shadowKey !== lastShadowKey) {
+      lastShadowKey = shadowKey
+      refreshShadows()
+    }
 
-    // Door eases towards open or ajar.
-    doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
+    // Door eases towards open or ajar (and its shadow with it).
+    if (Math.abs(doorTarget - doorAngle) > 0.0005) {
+      doorAngle += (doorTarget - doorAngle) * (1 - Math.pow(0.02, dt))
+      refreshShadows()
+    }
     leaf.rotation.y = doorAngle
 
     // Hover lift and click squash (squash and stretch, follow-through).
     for (const [id, g] of groups) {
       if (still.has(id)) continue
       const target = hovered === id ? 1 : 0
-      const h = (hoverScale.get(id) ?? 0) + (target - (hoverScale.get(id) ?? 0)) * k * 1.5
+      let h = (hoverScale.get(id) ?? 0) + (target - (hoverScale.get(id) ?? 0)) * k * 1.5
+      if (h !== target) {
+        dirty = true
+        if (Math.abs(target - h) < 0.002) h = target
+      }
       hoverScale.set(id, h)
       let p = pop.get(id) ?? 0
       if (p > 0) {
         p = Math.max(0, p - dt * 2.5)
         pop.set(id, p)
+        dirty = true
       }
       const squash = Math.sin(p * Math.PI * 2) * p * 0.06
-      g.position.y = h * 0.05
-      g.scale.set(1 + squash, 1 - squash, 1 + squash)
+      const pv = pivots.get(id)!
+      const sx = 1 + squash
+      const sy = 1 - squash
+      g.scale.set(sx, sy, sx)
+      g.position.set(pv.x * (1 - sx), pv.y * (1 - sy) + h * 0.05, pv.z * (1 - sx))
     }
 
     if (!opts.reduced) {
@@ -1174,19 +1419,42 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       yard.update(t, dt, camera.position)
     }
 
-    renderer.render(scene, camera)
+    // The camera moved (dragging, walking, a flight): that is a change too.
+    // (Not exact equality: the controls recompute the pose each frame, and rounding noise is not movement.)
+    if (camSeen.distanceToSquared(camera.position) > 1e-8 || quatSeen.angleTo(camera.quaternion) > 1e-5) {
+      camSeen.copy(camera.position)
+      quatSeen.copy(camera.quaternion)
+      dirty = true
+    }
+    // Normally the room is alive (sway, steam, sky), so it draws every frame. With reduced motion nothing
+    // moves by itself, so it draws only after something changed.
+    if (!opts.reduced || dirty) {
+      renderer.render(scene, camera)
+      dirty = false
+    }
     raf = requestAnimationFrame(loop)
   }
   raf = requestAnimationFrame(loop)
 
-  const onVis = () => {
-    cancelAnimationFrame(raf)
-    if (!document.hidden) {
+  // Draw nothing while the tab is hidden or the canvas is scrolled out of view.
+  const syncRunning = () => {
+    const want = !document.hidden && onScreen
+    if (want && !raf) {
       last = performance.now()
+      recent.length = 0
+      dirty = true
       raf = requestAnimationFrame(loop)
+    } else if (!want && raf) {
+      cancelAnimationFrame(raf)
+      raf = 0
     }
   }
-  document.addEventListener('visibilitychange', onVis)
+  const io = new IntersectionObserver(([entry]) => {
+    onScreen = entry.isIntersecting
+    syncRunning()
+  })
+  io.observe(canvas)
+  document.addEventListener('visibilitychange', syncRunning)
 
   return {
     scene,
@@ -1211,11 +1479,14 @@ export function mountRoom(canvas: HTMLCanvasElement, ev: RoomEvents, opts: { red
       canvas.removeEventListener('wheel', onZoomWheel, { capture: true })
       canvas.removeEventListener('pointerdown', onZoomDown, { capture: true })
       controls.dispose()
-      document.removeEventListener('visibilitychange', onVis)
+      document.removeEventListener('visibilitychange', syncRunning)
+      window.removeEventListener('keydown', onZoomKey)
+      io.disconnect()
       loaded.forEach(disposeTree)
       disposeTree(chair) // moved out of its model, so not covered above
       kit.dispose()
       envTarget.dispose()
+      reflection.dispose()
       envScene.dispose()
       sky.dispose()
       ground.dispose()

@@ -47,6 +47,14 @@ export function useMagnet<T extends HTMLElement>(strength = 0.3) {
     const el = ref.current
     if (!el || !window.matchMedia('(hover: hover)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let settle = 0
+    // Entering at the edge used to snap the button ~40px in one frame; a short ease-in carries it there instead,
+    // and leaving mid-way (or coming straight back) retargets from wherever it currently is.
+    const enter = () => {
+      window.clearTimeout(settle)
+      el.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)'
+      settle = window.setTimeout(() => (el.style.transition = ''), 200)
+    }
     const move = (e: PointerEvent) => {
       const r = el.getBoundingClientRect()
       const x = e.clientX - (r.left + r.width / 2)
@@ -54,13 +62,17 @@ export function useMagnet<T extends HTMLElement>(strength = 0.3) {
       el.style.transform = `translate(${x * strength}px, ${y * strength}px)`
     }
     const leave = () => {
+      window.clearTimeout(settle)
       el.style.transition = 'transform .5s cubic-bezier(.2,.8,.2,1.4)'
       el.style.transform = ''
-      setTimeout(() => (el.style.transition = ''), 500)
+      settle = window.setTimeout(() => (el.style.transition = ''), 500)
     }
+    el.addEventListener('pointerenter', enter)
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerleave', leave)
     return () => {
+      window.clearTimeout(settle)
+      el.removeEventListener('pointerenter', enter)
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerleave', leave)
     }
