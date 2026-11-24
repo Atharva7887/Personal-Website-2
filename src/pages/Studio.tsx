@@ -73,8 +73,8 @@ const STOPS: Stop[] = [
     id: 'arcade',
     label: 'Arcade',
     title: 'Take a break',
-    body: 'A small 3D game about how machine learning learns: roll down a loss landscape and find the global minimum.',
-    link: { label: 'Play Find the minimum', href: '/play/' },
+    body: 'Three small games about how machine learning learns: roll down a loss landscape, fit a curve without overfitting, and herd the centroids.',
+    link: { label: 'Play the games', href: '/play/' },
   },
   {
     id: 'door',

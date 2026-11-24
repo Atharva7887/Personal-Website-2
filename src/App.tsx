@@ -8,6 +8,8 @@ import { About, Services } from './components/Sections'
 import { Footer } from './components/Footer'
 import { CaseStudy } from './pages/CaseStudy'
 import { Play } from './pages/Play'
+import { PlayGame } from './play/LazyGame'
+import { GAMES } from './play/games'
 import { Studio } from './pages/Studio'
 import { SitemapPage } from './pages/SitemapPage'
 import { NotFound } from './pages/NotFound'
@@ -74,6 +76,16 @@ export default function App({ path }: { path: string }) {
       <>
         <SkipLink />
         <Play />
+      </>
+    )
+  }
+
+  const game = GAMES.find((g) => g.path === route)
+  if (game) {
+    return (
+      <>
+        <SkipLink />
+        <PlayGame id={game.id} />
       </>
     )
   }
