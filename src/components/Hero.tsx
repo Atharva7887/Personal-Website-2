@@ -19,7 +19,7 @@ export function Hero() {
   return (
     <section id="top" className="relative flex min-h-[100svh] flex-col overflow-hidden">
       <ParticleCanvas
-        shapes={['sphere', 'lattice', 'knot', 'helix']}
+        shapes={['sphere', 'lattice', 'antibody', 'landscape', 'helix', 'knot']}
         autoplay
         colors={{ base: '#0c0f14', accent: '#2f45ff' }}
         layout={(aspect) =>

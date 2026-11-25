@@ -13,6 +13,7 @@ export type ShapeName =
   | 'network'
   | 'spiral'
   | 'browser'
+  | 'landscape'
 
 // Deterministic PRNG so shapes are identical between renders.
 function rng(seed: number) {
@@ -236,6 +237,50 @@ function browser(n: number) {
   return a
 }
 
+/**
+ * A loss landscape: a wireframe surface with a deep valley, a shallow trap and a gentle bowl, plus the path
+ * gradient descent takes from a far corner down into the deepest valley (the same idea as the Find the minimum game).
+ */
+function landscape(n: number) {
+  const r = rng(11)
+  const f = (x: number, z: number) =>
+    0.9 - 1.9 * Math.exp(-((x - 0.7) ** 2 + (z + 0.5) ** 2) / 1.0) - 0.9 * Math.exp(-((x + 1.3) ** 2 + (z - 1.0) ** 2) / 0.45) + 0.07 * (x * x + z * z)
+  // The descent path: small steps down the gradient from the far corner.
+  const path: [number, number][] = []
+  let x = -2.1
+  let z = -2.0
+  for (let k = 0; k < 140; k++) {
+    path.push([x, z])
+    const e = 1e-3
+    const gx = (f(x + e, z) - f(x - e, z)) / (2 * e)
+    const gz = (f(x, z + e) - f(x, z - e)) / (2 * e)
+    x -= gx * 0.09
+    z -= gz * 0.09
+  }
+  const S = 2.4
+  const a = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) {
+    let px: number, pz: number, lift: number
+    if (i % 7 === 0) {
+      // On the path, floating a touch above the surface so it reads as a trail.
+      const [qx, qz] = path[Math.floor(r() * path.length)]
+      px = qx + (r() - 0.5) * 0.06
+      pz = qz + (r() - 0.5) * 0.06
+      lift = 0.1
+    } else {
+      // Grid lines: every point sits on a line of constant x or constant z.
+      const line = Math.round((r() * 2 - 1) * 9) / 9
+      const along = r() * 2 - 1
+      ;[px, pz] = r() < 0.5 ? [line * S, along * S] : [along * S, line * S]
+      lift = 0
+    }
+    a[i * 3] = px
+    a[i * 3 + 1] = f(px, pz) * 1.1 + lift - 0.2
+    a[i * 3 + 2] = pz
+  }
+  return a
+}
+
 const GENERATORS: Record<ShapeName, (n: number) => Float32Array> = {
   sphere,
   lattice,
@@ -247,6 +292,7 @@ const GENERATORS: Record<ShapeName, (n: number) => Float32Array> = {
   network,
   spiral,
   browser,
+  landscape,
 }
 
 const cache = new Map<string, Float32Array>()
