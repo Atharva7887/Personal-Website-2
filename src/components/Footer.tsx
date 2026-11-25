@@ -173,6 +173,7 @@ export function Footer() {
       <div className="page">
         <div className="mt-14 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 py-4 text-sm text-white/90">
           <p>© 2026 {NAME}</p>
+          <p className="max-w-[34rem]">No cookies, no ads, no tracking. Game scores and the sound setting stay in your own browser.</p>
           <p>Made in {LOCATION.split(',')[0]}.</p>
         </div>
       </div>
