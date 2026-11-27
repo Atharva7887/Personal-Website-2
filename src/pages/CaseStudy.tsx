@@ -62,7 +62,26 @@ export function CaseStudy({ project: p }: { project: Project }) {
             )}
           </section>
 
-          {p.image && (
+          {p.video ? (
+            <figure className="page mt-16">
+              {/* preload="none": nothing is fetched until the visitor presses play; the screenshot stands in until then. */}
+              <video
+                controls
+                playsInline
+                preload="none"
+                poster={p.image?.src}
+                width={1920}
+                height={1080}
+                aria-label={p.video.title}
+                className="aspect-video h-auto w-full rounded-3xl border border-ink/10 bg-ink object-cover"
+              >
+                <source src={p.video.src} type="video/mp4" />
+              </video>
+              <figcaption className="mt-3 text-sm text-slate">
+                {p.video.title} ({p.video.seconds} s).
+              </figcaption>
+            </figure>
+          ) : p.image && (
             <figure className="page mt-16">
               <img
                 src={p.image.src}

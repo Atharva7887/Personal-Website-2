@@ -26,6 +26,8 @@ export interface Project {
   shape: ShapeName
   image?: Img
   gallery?: Img
+  /** A screen recording of the product, shown on the case page (poster: `image`). Served from /public/video. */
+  video?: { src: string; title: string; seconds: number }
   links: { label: string; href: string }[]
   /** Case-study page. Omit `sections` for projects without enough to say. */
   sections?: { title: string; points: string[] }[]
@@ -172,6 +174,7 @@ export const projects: Project[] = [
       width: 1200,
       height: 750,
     },
+    video: { src: '/video/skin-lesion-demo.mp4', title: 'Walkthrough of the screening web app: upload, result with Grad-CAM heat map, and care guidance', seconds: 36 },
     links: [{ label: 'Code on GitHub', href: 'https://github.com/Atharva7887/Skin-disease-detection-system-with-AI' }],
     sections: [
       {
