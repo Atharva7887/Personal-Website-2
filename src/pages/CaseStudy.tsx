@@ -1,6 +1,7 @@
 import { hasPage, projects, type Project } from '../data/projects'
 import { Footer } from '../components/Footer'
 import { ParticleCanvas } from '../components/ParticleCanvas'
+import { ProjectVideo } from '../components/ProjectVideo'
 import { SubpageHeader } from '../components/SubpageHeader'
 
 const LIGHT = { base: '#0c0f14', accent: '#2f45ff' }
@@ -64,19 +65,7 @@ export function CaseStudy({ project: p }: { project: Project }) {
 
           {p.video ? (
             <figure className="page mt-16">
-              {/* preload="none": nothing is fetched until the visitor presses play; the screenshot stands in until then. */}
-              <video
-                controls
-                playsInline
-                preload="none"
-                poster={p.image?.src}
-                width={1920}
-                height={1080}
-                aria-label={p.video.title}
-                className="aspect-video h-auto w-full rounded-3xl border border-ink/10 bg-ink object-cover"
-              >
-                <source src={p.video.src} type="video/mp4" />
-              </video>
+              <ProjectVideo p={p} className="rounded-3xl border border-ink/10" />
               <figcaption className="mt-3 text-sm text-slate">
                 {p.video.title} ({p.video.seconds} s).
               </figcaption>

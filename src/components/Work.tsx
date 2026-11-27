@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { ProjectVideo } from './ProjectVideo'
 import { hasPage, projects, projectUrl, type Project } from '../data/projects'
 import { ShapeIcon } from './ShapeIcon'
 import { useReducedMotion, useReveals } from './motion'
@@ -281,7 +282,9 @@ function Panel({
           <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12">
             {/* Soft frame, like a mount: the screenshot where there is one, the project's own shape where there is not. */}
             <div className="self-start rounded-2xl bg-[#d3d7de] p-3 sm:p-4">
-              {p.image ? (
+              {p.video ? (
+                <ProjectVideo p={p} className="rounded-xl" />
+              ) : p.image ? (
                 <img
                   src={p.image.src}
                   alt={p.image.alt}

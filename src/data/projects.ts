@@ -1,6 +1,6 @@
 import indiskaShot from '../assets/indiskaai-site.webp'
 import plantShot from '../assets/planthelper.webp'
-import skinShot from '../assets/skin-detection.webp'
+import skinShot from '../assets/skin-demo.webp'
 import unhazeFeature from '../assets/unhaze-feature.webp'
 import unhazeStrip from '../assets/unhaze-overview.webp'
 import type { ShapeName } from '../three/shapes'
@@ -170,9 +170,9 @@ export const projects: Project[] = [
     shape: 'grid',
     image: {
       src: skinShot,
-      alt: 'Skin cancer awareness web app: “Take your skin cancer test now” with Take a test and How it works buttons',
-      width: 1200,
-      height: 750,
+      alt: 'Skin Cancer Awareness web app: “Screening for photos of skin spots”, with a quick photo check flagging a basal cell carcinoma',
+      width: 1600,
+      height: 900,
     },
     video: { src: '/video/skin-lesion-demo.mp4', title: 'Walkthrough of the screening web app: upload, result with Grad-CAM heat map, and care guidance', seconds: 36 },
     links: [{ label: 'Code on GitHub', href: 'https://github.com/Atharva7887/Skin-disease-detection-system-with-AI' }],
