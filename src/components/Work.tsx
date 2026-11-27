@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react'
-import { ProjectMetrics, ProjectPipeline } from './ProjectFacts'
+import { ProjectMetrics } from './ProjectFacts'
 import { ProjectVideo } from './ProjectVideo'
 import { hasPage, projects, projectUrl, type Project } from '../data/projects'
 import { ShapeIcon } from './ShapeIcon'
@@ -306,10 +306,9 @@ function Panel({
                   )}
                 </div>
               )}
-              {(p.metrics || p.pipeline) && (
-                <div className="mt-6 space-y-6">
+              {p.metrics && (
+                <div className="mt-6">
                   <ProjectMetrics p={p} tone="dark" />
-                  <ProjectPipeline p={p} tone="dark" />
                 </div>
               )}
             </div>
