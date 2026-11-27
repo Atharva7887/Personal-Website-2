@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { ProjectMetrics, ProjectPipeline } from './ProjectFacts'
 import { ProjectVideo } from './ProjectVideo'
 import { hasPage, projects, projectUrl, type Project } from '../data/projects'
 import { ShapeIcon } from './ShapeIcon'
@@ -281,23 +282,34 @@ function Panel({
 
           <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12">
             {/* Soft frame, like a mount: the screenshot where there is one, the project's own shape where there is not. */}
-            <div className="self-start rounded-2xl bg-[#d3d7de] p-3 sm:p-4">
+            {/* A video plays on its own, unframed; a still screenshot sits in a soft mount; otherwise the project's shape. */}
+            <div className="self-start">
               {p.video ? (
-                <ProjectVideo p={p} className="rounded-xl" />
-              ) : p.image ? (
-                <img
-                  src={p.image.src}
-                  alt={p.image.alt}
-                  width={p.image.width}
-                  height={p.image.height}
-                  loading="lazy"
-                  decoding="async"
-                  sizes="(min-width: 1024px) 700px, 90vw"
-                  className="w-full rounded-xl"
-                />
+                <ProjectVideo p={p} className="rounded-2xl" />
               ) : (
-                <div className="grid aspect-[16/10] place-items-center rounded-xl bg-fog">
-                  <ShapeIcon name={p.shape} active size={360} />
+                <div className="rounded-2xl bg-[#d3d7de] p-3 sm:p-4">
+                  {p.image ? (
+                    <img
+                      src={p.image.src}
+                      alt={p.image.alt}
+                      width={p.image.width}
+                      height={p.image.height}
+                      loading="lazy"
+                      decoding="async"
+                      sizes="(min-width: 1024px) 700px, 90vw"
+                      className="w-full rounded-xl"
+                    />
+                  ) : (
+                    <div className="grid aspect-[16/10] place-items-center rounded-xl bg-fog">
+                      <ShapeIcon name={p.shape} active size={360} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {(p.metrics || p.pipeline) && (
+                <div className="mt-6 space-y-6">
+                  <ProjectMetrics p={p} tone="dark" />
+                  <ProjectPipeline p={p} tone="dark" />
                 </div>
               )}
             </div>

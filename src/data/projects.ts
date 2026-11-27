@@ -28,6 +28,10 @@ export interface Project {
   gallery?: Img
   /** A screen recording of the product, shown on the case page (poster: `image`). Served from /public/video. */
   video?: { src: string; title: string; seconds: number }
+  /** Headline numbers, shown big on the case page and in the Work panel. */
+  metrics?: { value: string; label: string }[]
+  /** The system as a left-to-right pipeline, one stage per step. */
+  pipeline?: { stage: string; detail?: string }[]
   links: { label: string; href: string }[]
   /** Case-study page. Omit `sections` for projects without enough to say. */
   sections?: { title: string; points: string[] }[]
@@ -174,6 +178,20 @@ export const projects: Project[] = [
       width: 1600,
       height: 900,
     },
+    metrics: [
+      { value: '87.0%', label: 'Accuracy, ISIC 2018 test' },
+      { value: '0.812', label: 'Macro-F1' },
+      { value: '89.5%', label: 'Melanomas flagged' },
+      { value: '81 ms', label: 'Model time per photo (GPU)' },
+    ],
+    pipeline: [
+      { stage: 'Photo', detail: 'Flask web app / API' },
+      { stage: 'Quality check', detail: 'blank or tiny images stop here' },
+      { stage: 'Scope gate', detail: 'kNN on model features refuses non-lesion photos' },
+      { stage: 'Ensemble', detail: 'ConvNeXt-V2 + EfficientNetV2 + MaxViT, 8 views each' },
+      { stage: 'Risk rule', detail: 'fixed rule in code decides when a clinician should look' },
+      { stage: 'Explain', detail: 'Grad-CAM heat map and plain-language result (LangGraph)' },
+    ],
     video: { src: '/video/skin-lesion-demo.mp4', title: 'Walkthrough of the screening web app: upload, result with Grad-CAM heat map, and care guidance', seconds: 36 },
     links: [{ label: 'Code on GitHub', href: 'https://github.com/Atharva7887/Skin-disease-detection-system-with-AI' }],
     sections: [

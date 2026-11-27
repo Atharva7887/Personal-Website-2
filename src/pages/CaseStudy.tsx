@@ -1,7 +1,9 @@
 import { hasPage, projects, type Project } from '../data/projects'
 import { Footer } from '../components/Footer'
 import { ParticleCanvas } from '../components/ParticleCanvas'
+import { ProjectMetrics, ProjectPipeline } from '../components/ProjectFacts'
 import { ProjectVideo } from '../components/ProjectVideo'
+import { ScrollGrow } from '../components/ScrollGrow'
 import { SubpageHeader } from '../components/SubpageHeader'
 
 const LIGHT = { base: '#0c0f14', accent: '#2f45ff' }
@@ -65,7 +67,9 @@ export function CaseStudy({ project: p }: { project: Project }) {
 
           {p.video ? (
             <figure className="page mt-16">
-              <ProjectVideo p={p} className="rounded-3xl border border-ink/10" />
+              <ScrollGrow>
+                <ProjectVideo p={p} className="rounded-3xl" />
+              </ScrollGrow>
               <figcaption className="mt-3 text-sm text-slate">
                 {p.video.title} ({p.video.seconds} s).
               </figcaption>
@@ -80,6 +84,13 @@ export function CaseStudy({ project: p }: { project: Project }) {
                 className="w-full rounded-3xl border border-ink/10"
               />
             </figure>
+          )}
+
+          {(p.metrics || p.pipeline) && (
+            <section aria-label="Results and architecture" className="page mt-16 space-y-8">
+              <ProjectMetrics p={p} />
+              <ProjectPipeline p={p} />
+            </section>
           )}
 
           <div className="page mt-20 grid gap-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">

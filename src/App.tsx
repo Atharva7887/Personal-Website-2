@@ -35,7 +35,8 @@ function useSmoothScroll() {
     let lenis: { raf: (t: number) => void; destroy: () => void } | undefined
     let raf = 0
     import('lenis').then(({ default: Lenis }) => {
-      const l = new Lenis({ lerp: 0.1, anchors: { offset: 0 } })
+      // A slow, weighty glide: lower lerp = more easing per frame, and each wheel notch travels a little less.
+      const l = new Lenis({ lerp: 0.07, wheelMultiplier: 0.85, anchors: { offset: 0 } })
       lenis = l
       const loop = (t: number) => {
         l.raf(t)
